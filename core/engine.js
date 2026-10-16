@@ -1,7 +1,10 @@
 // 统一的 WAAPI 播放器。只动 opacity / translate / scale / filter，全部在合成线程执行。
+import { themeGeneration } from './guard.js';
 
 export const state = {
     on: false,
+    /** 是否按「减少动效」处理（见 guard.shouldReduce） */
+    reduced: false,
     feel: null,
     vars: {},
     settings: null,
@@ -63,6 +66,7 @@ export function play(el, group, tracks, { keep = false, defer = false } = {}) {
             console.debug('[MotionEngine] animate failed', e);
         }
     }
+    fixLockedOpacity(el, tracks, anims);
     map.set(group, anims);
     if (!anims.length) return Promise.resolve(true);
     if (defer) {
@@ -78,6 +82,27 @@ export function play(el, group, tracks, { keep = false, defer = false } = {}) {
         }
         return true;
     }, () => false);
+}
+
+/**
+ * 美化用 opacity: x !important 锁住透明度时，动画里的 opacity 不生效（重要声明高于动画）。
+ * 这时把透明度轨道换成 filter: opacity()，效果相同。
+ */
+const lockCache = new WeakMap(); // el → { gen, locked }：每个元素每套主题只检查一次，避免每次播放都强制计算样式
+function fixLockedOpacity(el, tracks, anims) {
+    const i = tracks.findIndex(([kf]) => 'opacity' in kf[0] && !tracks.some(([k]) => 'filter' in k[0]));
+    if (i < 0 || !anims[i]) return;
+    const gen = themeGeneration();
+    let hit = lockCache.get(el);
+    if (!hit || hit.gen !== gen) {
+        const want = Number(tracks[i][0][0].opacity);
+        hit = { gen, locked: Math.abs(parseFloat(getComputedStyle(el).opacity) - want) > 0.05 };
+        lockCache.set(el, hit);
+    }
+    if (!hit.locked) return;
+    anims[i].cancel();
+    const kf = tracks[i][0].map(f => ({ ...(f.offset !== undefined && { offset: f.offset }), filter: `opacity(${f.opacity})` }));
+    try { anims[i] = el.animate(kf, { fill: 'both', ...tracks[i][1] }); } catch { anims.splice(i, 1); }
 }
 
 /** 取消元素上本插件的所有动画 */

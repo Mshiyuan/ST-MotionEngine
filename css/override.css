@@ -1,0 +1,31 @@
+/* 覆盖美化动效（设置里开启后才生效）
+   美化自带的过渡和进出场动画让位给插件：插件接管的这些部件上，CSS 过渡和关键帧动画全部关掉。
+   插件自己的动画用 WAAPI 播放，不受这里影响；配色、形状、贴图都不变。
+   一直循环的装饰动画（流光、呼吸等）不属于「进出场」，不在这里处理。 */
+
+:root.me-on.me-override :is(
+    #top-settings-holder > .drawer > .drawer-content,
+    #options, #extensionsMenu, .popper-modal,
+    .inline-drawer-content, .select2-dropdown,
+    #toast-container > .toast,
+    #chat > .mes, #chat > .mes > .mes_block,
+    .menu_button, .mes_button, .right_menu_button, .drawer-icon, .swipe_left, .swipe_right,
+    .zoomed_avatar, .extraMesButtons, .mes_edit_buttons
+) {
+    transition: none !important;
+}
+
+:root.me-on.me-override :is(
+    #top-settings-holder > .drawer > .drawer-content,
+    #options, #extensionsMenu,
+    .inline-drawer-content,
+    #toast-container > .toast,
+    #chat > .mes, #chat > .mes > .mes_block
+):not(.slide) {
+    animation-name: none !important;
+}
+
+/* 新式弹窗的关闭关键帧是插件自己的，保留（见 popups.css） */
+:root.me-on.me-override .popup:not([closing]) {
+    animation-name: none !important;
+}

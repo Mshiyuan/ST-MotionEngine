@@ -6,7 +6,7 @@ import { active, dur, v, play } from '../core/engine.js';
 import { offsetFromPointer } from '../core/origin.js';
 
 function open(dlg) {
-    if (!active('popups') || window.jQuery?.fx?.off || dlg.classList.contains('popup--animation-none')) return;
+    if (!active('popups') || dlg.classList.contains('popup--animation-none')) return;
     const rect = dlg.getBoundingClientRect();
     const follow = !!(window.MotionEngine?.settings?.followPointer);
     const { dx, dy, has } = follow ? offsetFromPointer(rect, 0.35) : { dx: 0, dy: 0, has: false };

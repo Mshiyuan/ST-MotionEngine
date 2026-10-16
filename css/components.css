@@ -1,0 +1,39 @@
+/* 自绘下拉列表（modules/select.js），颜色跟随酒馆主题 */
+.me-select-list {
+    position: fixed;
+    z-index: 2147483600;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 4px;
+    border-radius: 12px;
+    box-sizing: border-box;
+    color: var(--SmartThemeBodyColor);
+    background-color: var(--SmartThemeBlurTintColor);
+    border: 1px solid var(--SmartThemeBorderColor);
+    backdrop-filter: blur(calc(var(--SmartThemeBlurStrength, 10px) + 8px));
+    -webkit-backdrop-filter: blur(calc(var(--SmartThemeBlurStrength, 10px) + 8px));
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+    font-family: var(--mainFontFamily, inherit);
+    font-size: var(--mainFontSize, inherit);
+}
+
+.me-select-opt {
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.me-select-opt[aria-selected="true"] {
+    background: rgba(127, 127, 127, 0.16);
+    background: color-mix(in srgb, var(--SmartThemeQuoteColor) 18%, transparent);
+    box-shadow: inset 2px 0 0 var(--SmartThemeQuoteColor);
+}
+
+.me-select-opt[aria-disabled="true"] { opacity: 0.4; cursor: default; }
+
+@media (hover: hover) {
+    .me-select-opt:hover { background: rgba(127, 127, 127, 0.12); background: color-mix(in srgb, var(--SmartThemeBodyColor) 10%, transparent); }
+}
+
+.me-select-group { padding: 8px 12px 4px; font-size: 0.8em; opacity: 0.6; }

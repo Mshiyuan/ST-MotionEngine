@@ -9,7 +9,7 @@ export const PRESS_SELECTOR = [
     '#options .options-content a', '#extensionsMenu .list-group-item', '.list-group-item',
     '.character_select', '.group_select', '.bogus_folder_select', '.tag', '.bg_example',
     '.select2-selection', '.inline-drawer-toggle', '.popup-button-ok', '.popup-button-cancel', '.popup-button-custom',
-    '.qr--button', '.mes_edit_buttons > div', '.avatar-container',
+    '.qr--button', '.mes_edit_buttons > div', '.avatar-container', '.me-pressable', '.me-feel', '.me-chip',
 ].join(',');
 
 const pressed = new Set();
@@ -23,7 +23,7 @@ function pressScale(el) {
 }
 
 function down(e) {
-    if (!active('press') || e.button > 0) return;
+    if (!active('press') || state.reduced || e.button > 0) return;
     const el = /** @type {Element} */ (e.target)?.closest?.(PRESS_SELECTOR);
     if (!el || el.matches('[disabled], .disabled, .ui-draggable-dragging')) return;
     pressed.add(el);

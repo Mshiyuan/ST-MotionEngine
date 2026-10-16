@@ -67,8 +67,9 @@ export function installMenus() {
     const $ = window.jQuery;
     const orig = { fadeIn: $.fn.fadeIn, fadeOut: $.fn.fadeOut, fadeToggle: $.fn.fadeToggle };
 
-    // 只在「所有元素都已注册」且 jQuery 动画没被关掉时接管
-    const take = (set) => !$.fx.off && set.length > 0 && set.toArray().every(el => lookup(el));
+    // 只在「所有元素都已注册」时接管。酒馆在系统减少动画时会关掉 jQuery 动画（$.fx.off），
+    // 插件仍按自己的设置播放（减少动效时变量本身就是短淡入淡出）
+    const take = (set) => set.length > 0 && set.toArray().every(el => lookup(el));
 
     $.fn.fadeIn = function (...args) {
         if (!take(this)) return orig.fadeIn.apply(this, args);
