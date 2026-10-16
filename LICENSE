@@ -1,0 +1,69 @@
+Motion Engine (ST-MotionEngine) License
+Copyright (c) 2026 Mshiyuan (时鸢)
+https://github.com/Mshiyuan/ST-MotionEngine
+
+The English text below is authoritative. A Chinese translation follows for reference.
+
+1. Grant
+   Permission is granted, free of charge, to use, copy, modify and distribute this
+   software ("the Software") for personal and other non-commercial purposes,
+   subject to the conditions below.
+
+2. Non-commercial
+   The Software and any modified version may not be used for commercial purposes.
+   This includes, without limitation: selling it; distributing it for a fee;
+   bundling it into paid content, paid services or paid packages; and locking it,
+   or features of it, behind payment, donations or subscriptions.
+
+3. Modified versions
+   Anyone who distributes a modified version of the Software must:
+   a) license the modified version under this same license;
+   b) make the complete source code of the modified version publicly available,
+      without obfuscation or minification that hinders reading;
+   c) keep this license, the original copyright notice, the original author's
+      name and a link to the original repository;
+   d) state clearly that the version has been modified and describe the changes.
+
+4. Disclaimer
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY ARISING FROM THE SOFTWARE OR ITS USE.
+   The author is not responsible for any modified or redistributed version made by
+   others. Problems with, and liability for, a modified version rest solely with
+   the person who modified or distributed it.
+
+5. Termination
+   Any use or distribution that violates these terms automatically terminates the
+   rights granted by this license.
+
+------------------------------------------------------------------------------
+
+动效引擎（ST-MotionEngine）许可协议
+版权所有 (c) 2026 Mshiyuan（时鸢）
+https://github.com/Mshiyuan/ST-MotionEngine
+
+以上英文文本为准，以下中文译文供参考。
+
+1. 授权
+   在遵守以下条件的前提下，允许任何人出于个人及其他非商业目的，免费使用、复制、
+   修改和分发本软件。
+
+2. 禁止商用
+   本软件及其任何修改版本均不得用于商业目的，包括但不限于：出售；收费分发；
+   放入付费内容、付费服务或付费合集；以付费、打赏或订阅作为获取本软件或其功能的条件。
+
+3. 修改版本
+   分发本软件的修改版本时，必须：
+   a) 使用本许可协议；
+   b) 公开修改版本的完整源码，不得混淆或以妨碍阅读的方式压缩；
+   c) 保留本许可协议、原版权声明、原作者署名及原仓库链接；
+   d) 明确标注该版本经过修改，并说明修改内容。
+
+4. 免责声明
+   本软件按「现状」提供，不附带任何明示或默示的担保。作者不对因本软件或其使用
+   产生的任何索赔、损失或其他责任负责。
+   作者不对他人制作的任何修改版本或转载版本负责。修改版本的问题与责任
+   全部由修改者或分发者承担。
+
+5. 终止
+   违反本协议的使用或分发，将自动终止本协议授予的权利。

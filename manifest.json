@@ -1,0 +1,12 @@
+{
+    "display_name": "Motion Engine 动效引擎",
+    "loading_order": 100,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "style.css",
+    "author": "Mshiyuan",
+    "version": "0.1.0",
+    "homePage": "https://github.com/Mshiyuan/ST-MotionEngine",
+    "minimum_client_version": "1.13.0"
+}

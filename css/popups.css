@@ -1,0 +1,23 @@
+/* 新式弹窗：打开交给 WAAPI（modules/popups.js），这里去掉原版的打开关键帧，换上关闭关键帧 */
+:root.me-on.me-m-popups .popup[opening],
+:root.me-on.me-m-popups .popup[opening]::backdrop {
+    animation: none;
+}
+
+:root.me-on.me-m-popups .popup:not(.popup--animation-none)[closing] {
+    animation: me-pop-out var(--me-pop-out-dur) var(--me-out) both;
+}
+
+:root.me-on.me-m-popups .popup:not(.popup--animation-none)[closing]::backdrop {
+    animation: me-fade-out var(--me-pop-out-dur) ease-in both;
+}
+
+@keyframes me-pop-out {
+    from { opacity: 1; translate: 0 0; scale: 1; }
+    to { opacity: 0; translate: 0 calc(var(--me-y) * 0.5); scale: var(--me-s-out, 0.97); }
+}
+
+@keyframes me-fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}

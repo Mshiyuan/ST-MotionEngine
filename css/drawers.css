@@ -1,0 +1,28 @@
+/* 顶栏抽屉与左右侧栏（动画在 modules/drawers.js）
+   这里只做两件事：
+   1. 去掉原版的 height 过渡，高度一步到位，避免每帧重新排版；
+   2. .me-leaving：关闭动画播放期间让抽屉保持显示。 */
+
+:root.me-on.me-m-drawers #top-settings-holder > .drawer > .drawer-content {
+    transition: none;
+}
+
+:root.me-on.me-m-drawers #top-settings-holder > .drawer > .drawer-content.me-leaving {
+    display: block;
+    height: auto;
+    pointer-events: none;
+}
+
+:root.me-on.me-m-drawers #top-settings-holder > .drawer > .drawer-content.fillLeft.me-leaving,
+:root.me-on.me-m-drawers #top-settings-holder > .drawer > .drawer-content.fillRight.me-leaving {
+    display: flex;
+    height: 100%;
+}
+
+@media screen and (max-width: 1000px) {
+    /* 原版在手机上把未打开的侧栏高度设成 0 */
+    :root.me-on.me-m-drawers #left-nav-panel.me-leaving,
+    :root.me-on.me-m-drawers #right-nav-panel.me-leaving {
+        height: calc(100dvh - 45px);
+    }
+}
