@@ -3,7 +3,7 @@ import { state } from './core/engine.js';
 import { installOrigin } from './core/origin.js';
 import { installPredecode } from './core/guard.js';
 import { setLocale } from './core/i18n.js';
-import { loadSettings, apply } from './core/settings.js';
+import { loadSettings, apply, save } from './core/settings.js';
 import { installPress } from './modules/press.js';
 import { installMenus } from './modules/menus.js';
 import { installPopups } from './modules/popups.js';
@@ -15,19 +15,22 @@ import { installInline } from './modules/inline.js';
 import { installMessages } from './modules/messages.js';
 import { installDetails } from './modules/details.js';
 import { installIcons } from './modules/icons.js';
+import { installWelcome } from './modules/welcome.js';
+import { installCheckbox } from './modules/checkbox.js';
 import { buildPanel } from './ui/panel.js';
 
 const ctx = () => SillyTavern.getContext();
 
 async function init() {
-    window.MotionEngine = { state, get settings() { return state.settings; }, version: '0.3.0' };
+    // 调试和其他插件用：改完 settings 后调用 apply() 生效，save() 保存
+    window.MotionEngine = { state, get settings() { return state.settings; }, apply, save, version: '0.4.0' };
     setLocale(ctx().getCurrentLocale?.());
     loadSettings();
     apply();
 
     // 每个模块各自 try：一个模块出错不影响其他模块
     const steps = [installOrigin, installPredecode, installPress, installMenus, installTransit, installPopups,
-        installDrawers, installPrerender, installToasts, installInline, installMessages, installDetails, installIcons];
+        installDrawers, installPrerender, installToasts, installInline, installMessages, installDetails, installIcons, installWelcome, installCheckbox];
     for (const step of steps) {
         try { step(); } catch (e) { console.error(`[MotionEngine] ${step.name} failed`, e); }
     }

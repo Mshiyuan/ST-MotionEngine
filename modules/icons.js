@@ -1,7 +1,7 @@
 // 图标点击反馈：顶栏和底栏的图标点击后按当前风格做一个小动作。
 // 只动独立的 scale / rotate / translate 属性（WAAPI），美化写死的 transform、换成图片的图标照样生效。
 // 美化已经给图标写了自己的动画（animation），且没开「覆盖美化动效」时，不动它。
-import { active, play, state } from '../core/engine.js';
+import { active, playTransform, isRunning, state, ampOf } from '../core/engine.js';
 import { spring } from '../core/tokens.js';
 
 const BAR_SELECTOR = [
@@ -44,11 +44,25 @@ function s(x) {
 /** 按当前风格给图标播一次点击动作；preview 用于设置面板里的样本 */
 export function iconFx(el, { weak = false } = {}) {
     const fx = FX[state.feel?.id] || FX.smooth;
-    const amp = Math.max(0, state.settings?.amp ?? 1) * (weak ? 0.5 : 1);
+    const amp = Math.max(0, ampOf('icons')) * (weak ? 0.5 : 1);
     if (!amp) return Promise.resolve(true);
-    const speed = state.settings?.speed || 1;
+    const s = state.settings;
+    const speed = (s?.perModule && s.tune?.icons?.speed) || s?.speed || 1;
     const tracks = fx(amp).map(([kf, opt]) => [kf, { ...opt, duration: opt.duration / speed }]);
-    return play(el, 'icon', tracks);
+    return playTransform(el, 'icon', tracks);
+}
+
+/**
+ * 酒馆在点击之后才切换图标的 openIcon（美化常在这时加上下划线）。下一帧再检查一次：
+ * 如果现在加缩放会挤歪下划线，而元素本身还在动，就改为只动图形或停下。
+ */
+function recheck(el, weak) {
+    requestAnimationFrame(() => {
+        if (!el.isConnected || el.classList.contains('me-glyph')) return;
+        if (!isRunning(el, 'icon') && !isRunning(el, 'press')) return;
+        const amp = Math.max(0, ampOf('icons'));
+        if (active('icons') && amp && !themeAnimates(el)) iconFx(el, { weak }); else playTransform(el, 'press', [[[{ scale: '1' }, { scale: '1' }], { duration: 1 }]]);
+    });
 }
 
 /** 美化给图标写了自己的动画时让开（开了「覆盖美化动效」除外） */
@@ -68,11 +82,14 @@ function target(t) {
 
 export function installIcons() {
     document.addEventListener('click', (e) => {
-        if (!active('icons') || state.reduced) return;
+        if (state.reduced || !state.on) return;
         const hit = target(/** @type {Element} */ (e.target));
-        if (!hit?.el || themeAnimates(hit.el)) return;
+        if (!hit?.el) return;
         // 顶栏图标：关闭面板时动作减半，打开时完整
         const weak = hit.top && hit.el.classList.contains('openIcon');
+        // 按压反馈也会缩放图标，所以不管图标反馈开没开都要复查
+        if (hit.top) recheck(hit.el, weak);
+        if (!active('icons') || themeAnimates(hit.el)) return;
         iconFx(hit.el, { weak });
     }, { capture: true, passive: true });
 }

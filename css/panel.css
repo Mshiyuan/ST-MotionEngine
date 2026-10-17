@@ -85,20 +85,33 @@
 #me-settings .me-feel[aria-pressed="true"] .me-check { opacity: 1; }
 #me-settings .me-feel[aria-pressed="true"] .me-curve path { stroke: var(--me-accent); opacity: 1; }
 
-/* 预览台：几个小样本，轻点即演示。面板样本占两格 */
-#me-settings .me-stage { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-#me-settings .me-tile {
-    position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 6px; margin: 0; padding: 8px;
-    min-height: 100px; border: 0; border-radius: 12px; background: var(--me-fill); overflow: hidden; text-align: center;
-    touch-action: manipulation; box-sizing: border-box;
+/* 预览：上面一排标签，下面一块演示区，只显示当前标签的样本。轻点演示区播放 */
+#me-settings .me-tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 1px 1px 2px; -webkit-overflow-scrolling: touch; }
+#me-settings .me-tabs::-webkit-scrollbar { display: none; }
+#me-settings .me-tab {
+    flex: none; margin: 0; padding: 5px 12px; border-radius: 999px; border: 1.5px solid transparent; background: var(--me-fill); font-size: 0.85em;
+    transition: border-color 200ms ease, background-color 200ms ease;
 }
-#me-settings .me-tile-demo { position: relative; flex: 1; display: flex; align-items: center; justify-content: center; min-height: 52px; }
-#me-settings .me-tile-lbl { font-size: 0.75em; opacity: 0.6; }
-#me-settings .me-tile-panel { grid-column: span 2; grid-row: span 2; }
-#me-settings .me-tile-panel .me-tile-demo { flex-direction: column; align-items: stretch; justify-content: flex-start; }
-#me-settings .me-pv-icon { position: absolute; top: 2px; left: 4px; opacity: 0.7; }
+#me-settings .me-tab[aria-selected="true"] { border-color: var(--me-accent); background: var(--me-sel); font-weight: 600; }
+#me-settings .me-stage {
+    position: relative; display: grid; place-items: center; height: 128px; padding: 10px; border-radius: 14px;
+    background: var(--me-fill); overflow: hidden; cursor: pointer; touch-action: manipulation; box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+#me-settings .me-stage-hint { position: absolute; right: 10px; bottom: 6px; font-size: 0.72em; opacity: 0.45; pointer-events: none; }
+#me-settings .me-demo { grid-area: 1 / 1; display: none; position: relative; width: 100%; height: 100%; align-items: center; justify-content: center; }
+#me-settings .me-stage[data-show="panel"] [data-demo="panel"],
+#me-settings .me-stage[data-show="button"] [data-demo="button"],
+#me-settings .me-stage[data-show="switch"] [data-demo="switch"],
+#me-settings .me-stage[data-show="checkbox"] [data-demo="checkbox"],
+#me-settings .me-stage[data-show="icon"] [data-demo="icon"],
+#me-settings .me-stage[data-show="menu"] [data-demo="menu"],
+#me-settings .me-stage[data-show="toast"] [data-demo="toast"],
+#me-settings .me-stage[data-show="list"] [data-demo="list"] { display: flex; }
+#me-settings [data-demo="panel"] { flex-direction: column; align-items: stretch; justify-content: flex-start; }
+#me-settings .me-pv-icon { position: absolute; top: 0; left: 2px; opacity: 0.7; }
 #me-settings .me-pv-panel {
-    display: flex; flex-direction: column; gap: 8px; margin: 24px 2px 2px; padding: 12px; border-radius: 10px; text-align: left;
+    display: flex; flex-direction: column; gap: 8px; margin: 22px 0 0; padding: 12px; border-radius: 10px; text-align: left;
     background: var(--SmartThemeBlurTintColor, var(--me-fill-2)); border: 1px solid var(--me-line);
 }
 #me-settings .me-pv-panel i,
@@ -107,32 +120,42 @@
 #me-settings .me-pv-panel i:nth-child(2) { width: 75%; }
 #me-settings .me-pv-panel i:nth-child(3) { width: 50%; }
 #me-settings .me-pv-btn {
-    margin: 0; padding: 7px 16px; border-radius: 999px; border: 1px solid var(--me-accent);
-    background: var(--SmartThemeBlurTintColor, transparent); font-size: 0.85em; touch-action: manipulation;
+    margin: 0; padding: 9px 22px; border-radius: 999px; border: 1px solid var(--me-accent);
+    background: var(--SmartThemeBlurTintColor, transparent); touch-action: manipulation;
 }
-#me-settings .me-pv-switch { position: relative; width: 44px; height: 26px; border-radius: 13px; background: var(--me-fill-2); transition: background-color 240ms ease; }
-#me-settings .me-on-state .me-pv-switch { background: var(--me-accent); }
-#me-settings .me-pv-knob { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 10px; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); }
-#me-settings .me-pv-glyph { font-size: 1.6em; opacity: 0.85; }
-#me-settings .me-pv-dim { position: absolute; top: 0; left: 4px; opacity: 0.5; }
+#me-settings .me-pv-switch { position: relative; width: 52px; height: 30px; border-radius: 15px; background: var(--me-fill-2); transition: background-color 240ms ease; }
+#me-settings .me-pv-switch.me-on-state { background: var(--me-accent); }
+#me-settings .me-pv-knob { position: absolute; top: 4px; left: 5px; width: 22px; height: 22px; border-radius: 11px; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); }
+#me-settings .me-pv-check {
+    display: grid; place-items: center; width: 30px; height: 30px; border-radius: 7px; border: 1.5px solid var(--me-line);
+    background: var(--me-fill-2); transition: background-color 160ms ease, border-color 160ms ease;
+}
+#me-settings .me-pv-check i { font-size: 1em; opacity: 0; transition: opacity 120ms ease; }
+#me-settings .me-pv-check.me-on-state { background: var(--me-sel); border-color: var(--me-accent); }
+#me-settings .me-pv-check.me-on-state i { opacity: 1; color: var(--me-accent); }
+#me-settings .me-pv-glyph { font-size: 2em; opacity: 0.85; }
+#me-settings .me-pv-dim { position: absolute; top: 0; left: 2px; opacity: 0.5; }
 #me-settings .me-pv-menu {
-    position: absolute; top: 16px; left: 18%; width: 64%; display: flex; flex-direction: column; gap: 5px; padding: 7px;
-    border-radius: 8px; background: var(--SmartThemeBlurTintColor, var(--me-fill-2)); border: 1px solid var(--me-line);
+    position: absolute; top: 18px; left: 8%; width: 46%; min-width: 120px; display: flex; flex-direction: column; gap: 7px; padding: 10px;
+    border-radius: 10px; background: var(--SmartThemeBlurTintColor, var(--me-fill-2)); border: 1px solid var(--me-line);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); transform-origin: 0 0; box-sizing: border-box;
 }
 #me-settings .me-pv-menu i:nth-child(2) { width: 80%; }
 #me-settings .me-pv-toast {
-    position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 4px;
-    border-radius: 8px; font-size: 0.8em; background: var(--SmartThemeBlurTintColor, var(--me-fill-2)); border: 1px solid var(--me-line);
+    position: absolute; top: 0; left: 50%; margin-left: -80px; width: 160px; display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 8px 4px; border-radius: 10px; font-size: 0.85em; background: var(--SmartThemeBlurTintColor, var(--me-fill-2)); border: 1px solid var(--me-line);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 #me-settings .me-pv-toast i { color: var(--me-accent); }
-#me-settings .me-pv-list { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+#me-settings .me-pv-list { display: flex; flex-direction: column; gap: 9px; width: 80%; }
 #me-settings .me-pv-list i:nth-child(even) { width: 70%; }
 
-@media (max-width: 420px) {
-    #me-settings .me-stage { grid-template-columns: repeat(2, 1fr); }
-    #me-settings .me-tile-panel { grid-row: span 1; }
-}
+/* 自定义风格编辑区 */
+#me-settings .me-editor { display: flex; flex-direction: column; gap: 8px; }
+#me-settings .me-c-name { flex: 1; min-width: 0; max-width: 60%; margin: 0; }
+#me-settings .me-feel-new { justify-content: center; align-items: center; text-align: center; border-style: dashed; border-color: var(--me-line); }
+#me-settings .me-feel-new .me-feel-name { padding: 0; }
+#me-settings .me-feel-new .me-feel-desc { min-height: 0; }
 
 /* 选项胶囊（面板开合方式） */
 #me-settings .me-pad { padding: 10px 12px 6px; display: flex; flex-direction: column; gap: 6px; }
@@ -148,23 +171,53 @@
 #me-settings [data-sec="panel"] .me-pad + .me-row { box-shadow: inset 0 1px 0 var(--me-fill-2); }
 
 /* 调节 */
-#me-settings .me-range { display: grid; grid-template-columns: 3.5em 1fr 3em; }
+#me-settings .me-range { display: grid; grid-template-columns: 4.5em 1fr 3.4em; }
 #me-settings .me-range input { width: 100%; margin: 0; }
 #me-settings .me-range output { text-align: right; font-variant-numeric: tabular-nums; opacity: 0.8; }
+#me-settings .me-row > .me-seg-sm { margin-left: auto; }
+/* 分模块设置：开启后隐藏整体的值，显示每个模块的两条滑块 */
+#me-settings .me-permod { display: none; }
+#me-settings .me-permod-on .me-permod { display: block; }
+#me-settings .me-permod-on .me-global { display: none; }
+#me-settings .me-mod-tune { padding: 6px 0 4px; box-shadow: inset 0 1px 0 var(--me-fill-2); }
+#me-settings .me-mod-name { padding: 4px 14px 0; font-size: 0.85em; font-weight: 600; }
+#me-settings .me-mod-tune .me-range { min-height: 36px; padding-top: 2px; padding-bottom: 2px; }
+#me-settings .me-mod-tune .me-range + .me-range { box-shadow: none; }
 
-/* 折叠分组：标题行 + grid 行高从 0fr 过渡到 1fr 展开（内容只有十来行，逐帧排版的开销很小） */
-#me-settings .me-fold { gap: 6px; }
+/* 折叠分组：标题行做成一张卡片（字号同正文、加粗、计数小胶囊、圆形箭头），一眼看出能点开；
+   内容用 grid 行高从 0fr 过渡到 1fr 展开（内容只有十几行，逐帧排版的开销很小） */
+#me-settings .me-fold { gap: 0; }
 #me-settings .me-fold-head {
-    display: flex; align-items: center; gap: 8px; width: 100%; margin: 0; padding: 4px; border: 0; background: none; text-align: left;
+    display: flex; align-items: center; gap: 10px; width: 100%; margin: 0; min-height: 48px; padding: 8px 10px 8px 14px; box-sizing: border-box;
+    border: 1px solid var(--me-line); border-radius: 14px; background: var(--me-fill); text-align: left;
+    transition: border-radius 300ms ease, background-color 200ms ease;
 }
-#me-settings .me-fold-title { font-size: 0.8em; letter-spacing: 0.06em; opacity: 0.6; }
-#me-settings .me-fold-count { margin-left: auto; font-size: 0.78em; opacity: 0.55; font-variant-numeric: tabular-nums; }
-#me-settings .me-fold-icon { font-size: 0.75em; opacity: 0.55; transition: rotate 420ms var(--me-spring); }
+#me-settings .me-fold.me-open .me-fold-head { border-radius: 14px 14px 0 0; border-bottom-color: transparent; }
+#me-settings .me-fold-title { font-weight: 600; }
+#me-settings .me-fold-count {
+    margin-left: auto; padding: 2px 9px; border-radius: 999px; font-size: 0.78em; font-variant-numeric: tabular-nums;
+    background: var(--me-sel); color: var(--me-text);
+}
+#me-settings .me-fold-count:empty { display: none; }
+#me-settings .me-fold-icon {
+    flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--me-fill-2);
+    font-size: 0.8em; transition: rotate 420ms var(--me-spring);
+}
+#me-settings .me-fold-count:empty + .me-fold-icon { margin-left: auto; }
 #me-settings .me-fold.me-open .me-fold-icon { rotate: 180deg; }
 #me-settings .me-fold-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 380ms cubic-bezier(0.2, 0, 0, 1); }
 #me-settings .me-fold.me-open .me-fold-body { grid-template-rows: 1fr; }
 #me-settings .me-fold-inner { min-height: 0; overflow: hidden; }
+#me-settings .me-fold-inner > .me-card { border: 1px solid var(--me-line); border-top: 0; border-radius: 0 0 14px 14px; }
+#me-settings .me-fold-inner > .me-foot { margin-top: 8px; }
 #me-settings .me-fold:not(.me-open) .me-fold-inner { visibility: hidden; transition: visibility 0s 380ms; }
+
+/* 分享设置 */
+#me-settings .me-share { padding: 10px 12px 12px; }
+#me-settings .me-code { width: 100%; box-sizing: border-box; margin: 0; font-family: monospace; font-size: 0.8em; resize: vertical; }
+#me-settings .me-share-btns { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#me-settings .me-mini { margin: 0; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--me-line); background: var(--SmartThemeBlurTintColor, transparent); font-size: 0.85em; }
+#me-settings .me-share-msg { font-size: 0.8em; opacity: 0.7; }
 
 /* 恢复默认 */
 #me-settings .me-action { padding: 0; }

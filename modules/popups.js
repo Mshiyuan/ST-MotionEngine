@@ -2,8 +2,11 @@
 // 打开：酒馆给 dialog 加 [opening] 后立刻 showModal()。插件用 CSS 把 [opening] 的关键帧去掉（酒馆随即移除该属性），
 //       再用 WAAPI 从点击位置展开，时长不受酒馆 500ms 兜底计时的限制。
 // 关闭：酒馆加 [closing]，等 animationend 后才真正关闭，所以关闭用 CSS 关键帧（见 css/popups.css）。
-import { active, dur, v, play } from '../core/engine.js';
+import { active, play, scoped } from '../core/engine.js';
 import { offsetFromPointer } from '../core/origin.js';
+
+// 动效参数按模块读取（开了「分模块设置」时各模块用自己的幅度和速度）
+const { dur, v } = scoped('popups');
 
 function open(dlg) {
     if (!active('popups') || dlg.classList.contains('popup--animation-none')) return;

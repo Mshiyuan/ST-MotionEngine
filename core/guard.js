@@ -44,6 +44,17 @@ function decodeAll() {
 
 const idle = (fn) => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 2000 }) : setTimeout(fn, 200));
 
+/** 已加载的图片原始尺寸（按绝对地址查）。还没加载过的顺手加载，下次就有了 */
+export function imageSize(absUrl) {
+    for (const img of decoded.values()) {
+        if (img.src === absUrl) return img.complete && img.naturalWidth ? { w: img.naturalWidth, h: img.naturalHeight } : null;
+    }
+    const img = new Image();
+    img.src = absUrl;
+    decoded.set(absUrl, img);
+    return img.complete && img.naturalWidth ? { w: img.naturalWidth, h: img.naturalHeight } : null;
+}
+
 export function installPredecode() {
     const schedule = () => { bumpThemeGen(); clearTimeout(scanTimer); scanTimer = setTimeout(decodeAll, 800); };
     // 主题的 custom_css、美化脚本注入的 <style> 都在 head 里；#custom-style 换主题时内容会整体替换
@@ -70,6 +81,33 @@ export function hasFixedBackground(el) {
     const v = getComputedStyle(el).backgroundAttachment.includes('fixed');
     fixedCache.set(el, { gen: themeGen, v });
     return v;
+}
+
+// ---------- 图标上的附属装饰 ----------
+// 美化常用图标的 ::after 画下划线、角标，并以外层（顶栏）为参照绝对定位。插件一旦给图标本身加缩放，
+// 图标就成了这些装饰的定位参照，下划线会跳到图标中间，动画结束才回去。
+// 这种情况只动图标的图形（字体图标的 ::before）；图形本身也动不了就不动。
+const isOff = (v) => !v || v === 'none' || v === 'normal';
+const floating = (pos) => pos === 'absolute' || pos === 'fixed';
+
+/**
+ * 给元素加缩放、位移时该动谁
+ * @returns {{ pseudo?: string } | null} {} 动元素本身；{ pseudo: '::before' } 只动图形；null 不动
+ */
+export function transformTarget(el) {
+    const cs = getComputedStyle(el);
+    // 元素本来就是定位参照（有定位或 transform），加缩放不改变装饰的参照
+    if (cs.position !== 'static' || cs.transform !== 'none') return {};
+    let anchored = false;
+    for (const p of ['::after', '::before']) {
+        const ps = getComputedStyle(el, p);
+        if (!isOff(ps.content) && floating(ps.position)) anchored = true;
+    }
+    if (!anchored) for (const c of el.children) if (floating(getComputedStyle(c).position)) { anchored = true; break; }
+    if (!anchored) return {};
+    const before = getComputedStyle(el, '::before');
+    if (!isOff(before.content) && !floating(before.position)) return { pseudo: '::before' };
+    return null;
 }
 
 // ---------- 透明度被 !important 锁住 ----------

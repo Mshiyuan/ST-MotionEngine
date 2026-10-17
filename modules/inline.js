@@ -5,7 +5,10 @@
 //   高度动画每一帧都要重新排版后面的内容。展开时第一次排版本来就要做（显示新内容），顺便计时：
 //   排版慢（页面内容多，例如扩展设置里一长串插件）或内容很高时，高度也直接到位，只做合成线程上的淡入和位移。
 // select2：打开时下拉列表从选择框方向展开。关闭时 select2 会立刻移除列表，无法做退场。
-import { active, dur, v, play, state } from '../core/engine.js';
+import { active, play, state, scoped } from '../core/engine.js';
+
+// 动效参数按模块读取（开了「分模块设置」时各模块用自己的幅度和速度）
+const { dur, v } = scoped('inline');
 
 const SELECTOR = '.inline-drawer-content';
 const intent = new WeakMap(); // 'open' | 'closed'，动画进行中以它为准
@@ -36,14 +39,20 @@ function expand(el, opt) {
     const D = dur('--me-p-in-dur');
     const tracks = [
         [[{ opacity: 0 }, { opacity: 1 }], { duration: D * 0.6, easing: v('--me-fade') }],
-        [[{ translate: `0 ${isHeavy ? -10 : -6}px` }, { translate: '0 0' }], { duration: D, easing: v('--me-p-in') }],
+        [[{ translate: `0 ${isHeavy ? `calc(${v('--me-y')} * -0.6 - 8px)` : '-6px'}` }, { translate: '0 0' }], { duration: D, easing: isHeavy ? v('--me-in') : v('--me-p-in') }],
     ];
+    if (isHeavy && !simple()) {
+        // 内容多：高度一步到位，用「从上往下揭开 + 轻微纵向伸展」代替逐帧改高度。裁剪只重画、不重新排版
+        tracks.push([[{ clipPath: 'inset(0 0 100% 0)' }, { clipPath: 'inset(0 0 0% 0)' }], { duration: D * 0.8, easing: 'cubic-bezier(0.2, 0, 0, 1)' }]);
+        tracks.push([[{ scale: '1 0.96', transformOrigin: '50% 0' }, { scale: '1', transformOrigin: '50% 0' }], { duration: D, easing: v('--me-in') }]);
+    }
     if (!simple() && !isHeavy) {
         el.style.overflow = 'hidden';
         tracks.push([[{ height: '0px', paddingTop: '0px', paddingBottom: '0px' }, { height: `${h}px`, paddingTop: pt, paddingBottom: pb }], { duration: D, easing: 'cubic-bezier(0.2, 0, 0, 1)' }]);
     }
     spinIcon(el);
-    play(el, 'slide', tracks).then(ok => {
+    // 内容多时，显示新内容的那一帧要排版很久；等它画完再开始，动画不会被这段时间吃掉
+    play(el, 'slide', tracks, { defer: isHeavy }).then(ok => {
         if (!ok) return;
         el.style.overflow = '';
         opt.complete?.call(el);

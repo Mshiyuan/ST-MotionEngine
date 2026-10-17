@@ -79,6 +79,9 @@ export const FEELS = [
     { id: 'ink', group: 'mood', zh: '墨水晕开', en: 'Ink spread', dzh: '像墨水一样晕开、收起', den: 'Spreads and retracts like ink',
         in: 'cubic-bezier(0.22, 1, 0.36, 1)', inDur: 520, out: 'cubic-bezier(0.4, 0, 1, 1)', outDur: 220, y: 6, s: 1, blur: 0, clip: true,
         press: 0.97, pressDur: 90, rel: 'cubic-bezier(0.22, 1, 0.36, 1)', relDur: 350, stagger: 40 },
+    { id: 'breathe', group: 'mood', zh: '呼吸舒展', en: 'Breathe', dzh: '像呼吸一样缓缓舒展，再轻轻呼出', den: 'Expands slowly like a breath, exhales on exit',
+        in: 'cubic-bezier(0.45, 0, 0.55, 1)', inDur: 640, out: 'cubic-bezier(0.45, 0, 0.55, 1)', outDur: 320, fade: 'cubic-bezier(0.4, 0, 0.6, 1)', y: 4, s: 0.92, blur: 2,
+        panel: { y: 0, s: 0.96, blur: 0 }, press: 0.97, pressDur: 160, rel: 'cubic-bezier(0.45, 0, 0.55, 1)', relDur: 560, stagger: 70 },
     { id: 'jelly', group: 'quirky', zh: '果冻弹性', en: 'Jelly', dzh: '压扁后来回晃几下', den: 'Wobbles after squashing',
         in: sJelly.easing, inDur: sJelly.duration, out: 'cubic-bezier(0.4, 0, 0.2, 1)', outDur: 200, fade: 'ease-out', y: 0, s: '1.3 0.6', blur: 0,
         panel: { in: sSoft.easing, inDur: sSoft.duration, y: 0, s: '1.03 0.94' },
@@ -89,6 +92,9 @@ export const FEELS = [
     { id: 'steps', group: 'quirky', zh: '复古阶梯', en: 'Retro steps', dzh: '一格一格跳，像素游戏感', den: 'Moves in steps, like pixel games',
         in: 'steps(5, end)', inDur: 400, out: 'steps(3, end)', outDur: 210, y: 20, s: 1, blur: 0,
         press: 0.9, pressDur: 0, rel: 'steps(2, end)', relDur: 120, stagger: 80 },
+    { id: 'glitch', group: 'quirky', zh: '故障闪现', en: 'Glitch', dzh: '像信号故障一样抖几下再定住', den: 'Jitters like a bad signal, then locks in',
+        in: 'linear(0, 0.55 12%, 0.3 22%, 0.85 34%, 0.7 46%, 1 58%, 0.94 74%, 1)', inDur: 380, out: 'linear(0, 0.4 25%, 0.2 40%, 0.8 60%, 1)', outDur: 200, fade: 'steps(4, jump-none)', y: 10, s: 1, blur: 0,
+        press: 0.94, pressDur: 40, rel: 'steps(3, jump-none)', relDur: 160, stagger: 45 },
 ];
 
 export const GROUPS = [
@@ -120,7 +126,7 @@ export function feelVars(f, { speed = 1, amp = 1, reduced = false, bigBounce = f
             '--me-y': '0px', '--me-s': '1', '--me-blur': '0px',
             '--me-p-in': fade, '--me-p-out': fade, '--me-p-in-dur': ms(140), '--me-p-out-dur': ms(100), '--me-p-y': '0px', '--me-p-s': '1', '--me-p-blur': '0px', '--me-side-x': '0px',
             '--me-press': '1', '--me-press-dur': '0ms', '--me-rel': fade, '--me-rel-dur': '0ms', '--me-stagger': '0ms',
-            '--me-big': '1',
+            '--me-big': 'area',
         };
     }
     const p = bigBounce ? { in: f.in, inDur: f.inDur, y: f.y, s: f.s, blur: 0 } : (f.panel || {});
@@ -147,7 +153,7 @@ export function feelVars(f, { speed = 1, amp = 1, reduced = false, bigBounce = f
         '--me-p-y': `${pY}px`, '--me-p-s': pS, '--me-p-blur': `${(p.blur ?? 0) * Math.min(amp, 1)}px`,
         '--me-side-x': `${Math.max(pY, 16) * 1.5}px`,
         // 大面板形变倍数：与小部件一致时，压扁、回弹等形变放大到小部件的程度
-        '--me-big': bigBounce ? '2.2' : '1',
+        '--me-big': bigBounce ? '2.2' : 'area',
         '--me-press': scaleBy(f.press, amp), '--me-press-dur': d(f.pressDur),
         '--me-rel': f.rel, '--me-rel-dur': d(f.relDur), '--me-stagger': d(f.stagger),
     };

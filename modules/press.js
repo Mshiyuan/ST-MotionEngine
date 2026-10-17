@@ -1,6 +1,9 @@
 // 按压反馈：按下缩小，松开按风格曲线回弹。
 // 用 WAAPI 只动独立的 scale 属性，不改元素的 transition，主题自己的过渡和 transform 照常生效。
-import { active, dur, v, play, state } from '../core/engine.js';
+import { active, playTransform, state, scoped } from '../core/engine.js';
+
+// 动效参数按模块读取（开了「分模块设置」时各模块用自己的幅度和速度）
+const { dur, v } = scoped('press');
 
 export const PRESS_SELECTOR = [
     '.menu_button', '.menu_button_icon', '.mes_button', '.right_menu_button', '.drawer-icon',
@@ -28,7 +31,7 @@ function down(e) {
     if (!el || el.matches('[disabled], .disabled, .ui-draggable-dragging')) return;
     pressed.add(el);
     const d = dur('--me-press-dur');
-    play(el, 'press', [[[{ scale: '1' }, { scale: pressScale(el) }], { duration: Math.max(d, 1), easing: 'ease-out' }]], { keep: true });
+    playTransform(el, 'press', [[[{ scale: '1' }, { scale: pressScale(el) }], { duration: Math.max(d, 1), easing: 'ease-out' }]], { keep: true });
     if (state.settings?.haptics && e.pointerType === 'touch' && navigator.vibrate) {
         try { navigator.vibrate(8); } catch { /* 部分浏览器在没有用户手势时会拒绝 */ }
     }
@@ -38,7 +41,7 @@ function up() {
     if (!pressed.size) return;
     for (const el of pressed) {
         const d = dur('--me-rel-dur');
-        play(el, 'press', [[[{ scale: pressScale(el) }, { scale: '1' }], { duration: Math.max(d, 1), easing: v('--me-rel') }]]);
+        playTransform(el, 'press', [[[{ scale: pressScale(el) }, { scale: '1' }], { duration: Math.max(d, 1), easing: v('--me-rel') }]]);
     }
     pressed.clear();
 }

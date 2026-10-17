@@ -1,6 +1,6 @@
 // 汉堡菜单（#options）和扩展菜单（#extensionsMenu）
 // 原版用 jQuery fadeIn/fadeOut 在主线程逐帧改 opacity。这里只针对注册过的元素换成 WAAPI，其余元素照走原版。
-import { active, dur, v, play, stop } from '../core/engine.js';
+import { active, play, stop, scoped } from '../core/engine.js';
 import { recentPointer } from '../core/origin.js';
 
 /** 选择器 → { mod: 所属模块, kind: 动画类型, anchor: 触发按钮 } */
@@ -36,6 +36,7 @@ function setOrigin(el, r) {
 }
 
 function enter(el, r, complete) {
+    const { dur, v } = scoped(r.mod);
     el.style.display = '';
     if (hidden(el)) el.style.display = r.display || 'block';
     el.style.opacity = '';
@@ -51,6 +52,7 @@ function enter(el, r, complete) {
 }
 
 function exit(el, r, complete) {
+    const { dur, v } = scoped(r.mod);
     const outDur = dur('--me-out-dur');
     play(el, 'fade', [
         [[{ opacity: 1 }, { opacity: 0 }], { duration: outDur, easing: v('--me-fade-out') }],

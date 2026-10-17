@@ -1,6 +1,9 @@
 // 接管 jquery.transit 的 .transition()：酒馆用它做透明度渐变（右栏切页、消息「…」按钮、旧式弹窗）。
 // 只处理注册过的元素，其余照走原版。原版在主线程逐帧改 opacity；这里换成 WAAPI，并加上位移或缩放。
-import { active, dur, v, play, state } from '../core/engine.js';
+import { active, play, state, scoped } from '../core/engine.js';
+
+// 动效参数按模块读取（开了「分模块设置」时各模块用自己的幅度和速度）
+const { dur, v } = scoped('details');
 
 /** @type {Array<{ selector: string, mod: string, kind: (el: HTMLElement, show: boolean) => Array<[Keyframe[], KeyframeAnimationOptions]> }>} */
 const REGISTRY = [];

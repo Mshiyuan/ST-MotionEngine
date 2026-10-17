@@ -1,3 +1,8 @@
+/* 图标只动图形时（core/engine.js playTransform），行内的 ::before 要改成 inline-block 才能缩放 */
+:root.me-on .me-glyph::before {
+    display: inline-block;
+}
+
 /* 下拉框展开动画（设置「下拉框展开动画」，根 class me-select）
    用浏览器自带的「可自定义下拉框」（appearance: base-select，Chrome / Edge 135+）：仍是原生 <select>，
    值、事件、键盘操作都不变，只是选项列表画在页面里，可以用 CSS 过渡做展开和收起。

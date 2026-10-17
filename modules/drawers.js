@@ -6,9 +6,10 @@
 // 如果插件此时读取尺寸，浏览器会被迫提前排版；接着插件再改样式，同一帧就得排两遍。所以：
 //   打开：先只写不读（面板设为透明并分好图层），等这一帧画完、排版已经算好，再读尺寸、开始动画；
 //   关闭：用打开时记下的尺寸，全程不读。
-import { active, play, stop, state, isRunning } from '../core/engine.js';
+import { active, play, stop, state, isRunning, ampOf } from '../core/engine.js';
 import { resolveForm, panelTracks } from '../core/forms.js';
 import { hasFixedBackground } from '../core/guard.js';
+import { unfixBackground } from '../core/fixedbg.js';
 
 export const DRAWER_SELECTOR = '#top-settings-holder > .drawer > .drawer-content';
 const wasOpen = new WeakMap();
@@ -26,18 +27,34 @@ function measure(el, iconEl) {
     return g;
 }
 
+/** 固定背景换算后的还原函数：动画被打断时留着，由接下来的动画播完后还原 */
+const unfixed = new WeakMap();
+
+function restoreBackground(el) {
+    unfixed.get(el)?.();
+    unfixed.delete(el);
+}
+
 function start(el, dir, g, t) {
-    const s = state.settings;
-    const { form, k } = resolveForm(el, dir, s);
-    const { tracks, origin } = panelTracks(el, dir, { form, k, rect: g.rect, iconRect: g.iconRect, fixedBg: g.fixedBg, amp: s.amp, lite: s.lite });
+    const go = () => {
+        const s = state.settings;
+        // 固定背景：先换成等效的普通背景，换得了就正常动，换不了只淡入淡出
+        if (g.fixedBg && !unfixed.has(el) && !s.lite && !state.reduced) {
+            const restore = unfixBackground(el);
+            if (restore) unfixed.set(el, restore);
+        }
+        const { form, k } = resolveForm(el, dir, s);
+        const { tracks, origin } = panelTracks(el, dir, { form, k, rect: g.rect, iconRect: g.iconRect, fixedBg: g.fixedBg && !unfixed.has(el), amp: ampOf('drawers'), lite: s.lite });
+        return begin(el, dir, tracks, origin);
+    };
     // 关闭时酒馆切换 class 的那一帧要重算整块面板的样式（手机上几十到几百毫秒）。动画如果同时开始，
     // 这段时间会被算进动画里，画出来时已经播完大半，面板像是一下子消失。所以先保持原样，等这一帧过去再开始。
     if (dir === 'out' && t) {
         return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => {
-            resolve(token.get(el) === t ? begin(el, dir, tracks, origin) : false);
+            resolve(token.get(el) === t ? go() : false);
         })));
     }
-    return begin(el, dir, tracks, origin);
+    return go();
 }
 
 function begin(el, dir, tracks, origin) {
@@ -47,6 +64,7 @@ function begin(el, dir, tracks, origin) {
     return play(el, 'drawer', tracks).then(ok => {
         if (!ok) return false;
         if (scaled) el.style.transformOrigin = '';
+        restoreBackground(el);
         // 打开期间保留图层：关闭时不用把整个面板重画到新图层上（那一帧会多出几十到上百毫秒）
         if (dir === 'out') { el.classList.remove('me-leaving'); el.style.willChange = ''; }
         return true;
@@ -63,16 +81,24 @@ function run(el, dir, iconEl = null) {
         // 只写：透明 + 分好图层。下一帧再量尺寸、开始动画
         el.style.willChange = 'opacity, translate, scale';
         // 关闭动画还没播完就又打开：不遮住，下一帧从当前画面接着播
-        if (!isRunning(el, 'drawer')) el.animate([{ opacity: 0 }, { opacity: 0 }], { duration: 1000, id: 'me-hold' });
+        // 占位要撑得比最慢的第一帧还久：手机上第一次打开大面板可能超过 1 秒，占位先结束的话面板会闪现一下
+        if (!isRunning(el, 'drawer')) el.animate([{ opacity: 0 }, { opacity: 0 }], { duration: 10000, id: 'me-hold' });
         // rAF 回调在本帧排版之前执行，所以要等两次：第二次时打开那一帧已经画完，尺寸是现成的
         return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => {
             // 先量再撤掉占位动画：撤动画会让样式变脏，反过来做的话量尺寸时要先重算一遍样式
             const g = token.get(el) === t ? measure(el, iconEl || iconOf(el)) : null;
             el.getAnimations().forEach(a => a.id === 'me-hold' && a.cancel());
             if (!g) return resolve(false);
-            if (g.fixedBg) el.style.willChange = 'opacity';
             resolve(start(el, 'in', g));
         })));
+    }
+    // 关闭方式为「无动画」：不保留显示、不等待，和原版一样立即关闭
+    if (resolveForm(el, 'out', state.settings).form === 'none') {
+        stop(el);
+        restoreBackground(el);
+        el.classList.remove('me-leaving');
+        el.style.willChange = '';
+        return Promise.resolve(true);
     }
     // 关闭：先写 class（保持显示），用缓存的尺寸，不读
     el.classList.add('me-leaving');
@@ -87,6 +113,7 @@ function onClass(el) {
     if (!active('drawers') || el.classList.contains('pinnedOpen')) {
         token.set(el, {});
         stop(el);
+        restoreBackground(el);
         el.classList.remove('me-leaving');
         el.style.willChange = '';
         return;

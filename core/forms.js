@@ -1,6 +1,9 @@
 // 面板（顶栏抽屉、侧栏）的打开 / 关闭方式
 // 每种方式给出一组 WAAPI 轨道。打开方式描述「从哪里来」，关闭方式描述「到哪里去」。
-import { dur, v, state } from './engine.js';
+import { state, scoped, areaFactor } from './engine.js';
+
+// 动效参数按模块读取（开了「分模块设置」时各模块用自己的幅度和速度）
+const { dur, v } = scoped('drawers');
 
 /** 设置里可选的方式（feel = 跟随手感风格） */
 export const PANEL_FORMS = [
@@ -27,7 +30,9 @@ const FEEL_FORMS = {
     blur: { in: 'focus', out: 'dissolve', k: 1 },
     float: { in: 'rise', out: 'float', k: 1.4 },
     ink: { in: 'curtain', out: 'curtain', k: 1 },
+    breathe: { in: 'breathe', out: 'exhale', k: 1 },
     jelly: { in: 'jelly', out: 'squash', k: 1.2 },
+    glitch: { in: 'glitch', out: 'glitch', k: 1 },
     cinema: { in: 'rise', out: 'sink', k: 1.6 },
     steps: { in: 'drop', out: 'drop', k: 1 },
 };
@@ -48,7 +53,8 @@ function sideOf(el, iconRect) {
  */
 export function resolveForm(el, dir, settings) {
     const chosen = settings?.[dir === 'in' ? 'panelIn' : 'panelOut'] || 'feel';
-    const feelForm = FEEL_FORMS[state.feel?.id] || FEEL_FORMS.smooth;
+    // 自定义风格自带开合方式
+    const feelForm = state.feel?.forms || FEEL_FORMS[state.feel?.id] || FEEL_FORMS.smooth;
     let form = chosen === 'feel' ? feelForm[dir] : chosen;
     // 手机上的左右侧栏：跟随风格时默认侧滑，比从顶栏落下更有方向感
     if (chosen === 'feel' && isMobile() && (el.id === 'left-nav-panel' || el.id === 'right-nav-panel') && ['drop', 'drop-back', 'rise', 'sink', 'fade'].includes(form)) form = 'side';
@@ -76,8 +82,9 @@ export function panelTracks(el, dir, o) {
     const ease = dir === 'in' ? v('--me-p-in') : v('--me-p-out');
     // 退场透明度匀速：前慢后快的曲线会让面板最后几帧才突然消失，掉一帧就像闪了一下
     const fadeEase = dir === 'in' ? v('--me-fade') : v('--me-fade-out');
-    // 大面板形变倍数（设置「大面板回弹」：减弱 = 1，与小部件一致 = 2.2）
-    const big = parseFloat(v('--me-big')) || 1;
+    // 形变倍数（回弹、压扁、缩放）：「统一」时与小部件一样（2.2），「越大越弱」时按面积减弱，
+    // 整屏面板约为 1，半屏的面板更明显。基础位移 d 已经按面板高度算，不再随面积减弱
+    const big = v('--me-big') === '2.2' ? 2.2 : 2.2 * areaFactor(w, h);
     const fadeDur = dir === 'in' ? D * 0.6 : D;
     const side = sideOf(el, o.iconRect);
     const icon = o.iconRect;
@@ -156,6 +163,20 @@ export function panelTracks(el, dir, o) {
         case 'fade':
             fade(); move({ scale: sc(1 - 0.02 * amp) });
             break;
+        case 'breathe': // 从略小处缓缓舒展
+            fade(); move({ scale: sc(1 - 0.04 * amp * big) });
+            break;
+        case 'exhale': // 呼出：轻轻放大并淡去
+            fade(); move({ scale: sc(1 + 0.03 * amp * big) });
+            break;
+        case 'glitch': { // 横向抖几下，透明度闪烁，最后定住
+            const j = Math.max(4, d * 0.35);
+            const xs = dir === 'in' ? [-j, j * 0.6, -j * 0.3, j * 0.15, 0] : [0, j * 0.3, -j * 0.6, j, -j];
+            const ops = dir === 'in' ? [0, 1, 0.35, 1, 0.75, 1] : [1, 0.6, 1, 0.3, 0.6, 0];
+            T.push([ops.map((o, i) => ({ opacity: o, offset: i / (ops.length - 1) })), { duration: D, easing: 'linear' }]);
+            T.push([xs.map((x, i) => ({ translate: `${x}px 0`, offset: i / (xs.length - 1) })), { duration: D, easing: 'linear' }]);
+            break;
+        }
         case 'curtain': // 卷帘：裁剪在主线程执行，调用方会等长帧过去再开始（见 drawers.js）
             fade(); move({ clipPath: 'inset(0 0 100% 0)' });
             break;

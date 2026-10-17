@@ -1,12 +1,18 @@
 // 聊天消息：新消息浮现、进入聊天时最后几条依次登场、切换回复（swipe）
 // 只观察 #chat 的直接子节点增减（childList），不观察子树，流式输出改文字时不会触发。
-import { active, dur, v, play, state } from '../core/engine.js';
+import { active, play, state, scoped, areaFactor } from '../core/engine.js';
 import { recentPointer } from '../core/origin.js';
+
+// 动效参数按模块读取（开了「分模块设置」时各模块用自己的幅度和速度）
+const { dur, v } = scoped('messages');
 
 const STAGGER_LAST = 4;
 
 function enter(el, delay = 0, k = 1) {
     const D = dur('--me-in-dur');
+    // 越大的消息上浮越少（设置「强度随面积」），长消息整块飘上来容易晃眼
+    const r = el.getBoundingClientRect();
+    k *= areaFactor(r.width, Math.min(r.height, innerHeight));
     play(el, 'mes', [
         [[{ opacity: 0 }, { opacity: 1 }], { duration: D * 0.6, delay, easing: v('--me-fade') }],
         [[{ translate: `0 calc(${v('--me-y')} * ${1.2 * k} + 6px)`, scale: v('--me-s') }, { translate: '0 0', scale: '1' }], { duration: D, delay, easing: v('--me-in') }],

@@ -1,5 +1,5 @@
 // 统一的 WAAPI 播放器。只动 opacity / translate / scale / filter，全部在合成线程执行。
-import { themeGeneration } from './guard.js';
+import { themeGeneration, transformTarget } from './guard.js';
 
 export const state = {
     on: false,
@@ -7,6 +7,8 @@ export const state = {
     reduced: false,
     feel: null,
     vars: {},
+    /** 开了「分模块设置」时，每个模块自己的变量（见 settings.apply） */
+    varsBy: {},
     settings: null,
     /** @type {Set<string>} */
     modules: new Set(),
@@ -17,13 +19,39 @@ export function active(mod) {
     return state.on && state.modules.has(mod);
 }
 
-/** 读取当前变量里的时长（毫秒） */
-export function dur(name) {
-    return parseFloat(state.vars[name]) || 0;
+/** 读取当前变量里的时长（毫秒）。mod 给出时优先用该模块自己的变量 */
+export function dur(name, mod) {
+    return parseFloat(((mod && state.varsBy[mod]) || state.vars)[name]) || 0;
 }
 
-export function v(name) {
-    return state.vars[name];
+export function v(name, mod) {
+    return ((mod && state.varsBy[mod]) || state.vars)[name];
+}
+
+/** 给模块用的变量读取函数：const { dur, v } = scoped('toasts') */
+export function scoped(mod) {
+    return { dur: (name) => dur(name, mod), v: (name) => v(name, mod) };
+}
+
+/** 模块的幅度系数（分模块设置时取模块自己的值） */
+export function ampOf(mod) {
+    const s = state.settings;
+    if (!s) return 1;
+    return s.perModule && s.tune?.[mod] ? s.tune[mod].amp : s.amp;
+}
+
+/**
+ * 强度随面积变化：越小的东西效果越强，越大越弱。
+ * 面积不到屏幕 2%（按钮这类）为 1，超过 60%（整屏面板）为 0.45，中间按对数过渡。
+ * 设置为「统一」或开了分模块设置时一律为 1。
+ */
+export function areaFactor(w, h) {
+    const s = state.settings;
+    if (!s || s.panelBounce === 'uniform' || s.perModule) return 1;
+    const a = Math.min(1, (w * h) / Math.max(1, innerWidth * innerHeight));
+    if (a <= 0.02) return 1;
+    if (a >= 0.6) return 0.45;
+    return +(1 - 0.55 * (Math.log(a / 0.02) / Math.log(30))).toFixed(3);
 }
 
 const running = new WeakMap();
@@ -45,7 +73,8 @@ export function play(el, group, tracks, { keep = false, defer = false } = {}) {
     if (map.size) {
         // 打断时从当前画面接着走，不跳回起点
         const cs = getComputedStyle(el);
-        for (const [kf] of tracks) {
+        for (const [kf, opt] of tracks) {
+            if (opt?.pseudoElement) continue;
             const first = kf[0];
             for (const p of Object.keys(first)) {
                 if (p === 'offset' || p === 'easing') continue;
@@ -103,6 +132,24 @@ function fixLockedOpacity(el, tracks, anims) {
     anims[i].cancel();
     const kf = tracks[i][0].map(f => ({ ...(f.offset !== undefined && { offset: f.offset }), filter: `opacity(${f.opacity})` }));
     try { anims[i] = el.animate(kf, { fill: 'both', ...tracks[i][1] }); } catch { anims.splice(i, 1); }
+}
+
+/**
+ * 和 play 一样，但先检查加缩放会不会把图标的下划线等装饰挤到图标中间（见 guard.transformTarget）。
+ * 会的话改为只动图标的图形；图形也动不了就跳过。
+ */
+export function playTransform(el, group, tracks, opt = {}) {
+    const tgt = transformTarget(el);
+    if (!tgt) { stop(el); return Promise.resolve(false); }
+    if (!tgt.pseudo) return play(el, group, tracks, opt);
+    // 行内的伪元素不能变形，动画期间改成 inline-block（见 css/components.css）
+    el.classList.add('me-glyph');
+    stop(el); // 元素本身可能还带着之前的缩放
+    const t = tracks.map(([kf, o]) => [kf, { ...o, pseudoElement: tgt.pseudo }]);
+    return play(el, group, t, opt).then(ok => {
+        if (ok && !opt.keep) el.classList.remove('me-glyph');
+        return ok;
+    });
 }
 
 /** 取消元素上本插件的所有动画 */
