@@ -4,7 +4,7 @@ import { state } from './engine.js';
 import { shouldReduce } from './guard.js';
 
 export const KEY = 'motionEngine';
-export const MODULES = ['press', 'drawers', 'menus', 'popups', 'toasts', 'inline', 'messages', 'swipes', 'details'];
+export const MODULES = ['press', 'icons', 'drawers', 'menus', 'popups', 'toasts', 'inline', 'messages', 'swipes', 'details'];
 
 export const DEFAULTS = Object.freeze({
     enabled: true,
@@ -13,6 +13,10 @@ export const DEFAULTS = Object.freeze({
     amp: 1,
     panelIn: 'feel',
     panelOut: 'feel',
+    /** 打开和关闭分开设置；关闭时两者始终相同 */
+    panelSplit: false,
+    /** 大面板回弹：soft = 减弱，full = 与小部件一致 */
+    panelBounce: 'soft',
     modules: Object.freeze(Object.fromEntries(MODULES.map(m => [m, true]))),
     prerender: true,
     lite: false,
@@ -36,7 +40,8 @@ export function loadSettings() {
         ...saved,
         modules: { ...DEFAULTS.modules, ...(saved.modules || {}) },
     };
-    // 0.1.0 的幅度范围是 0–1.5，现在是 0–2，数值含义不变
+    // 幅度范围历次放宽（0–1.5 → 0–2 → 0–3），数值含义不变
+    if (!s.panelSplit && s.panelOut !== s.panelIn) s.panelSplit = true;
     state.settings = s;
     return s;
 }
@@ -61,7 +66,7 @@ export function apply() {
     state.on = !!s.enabled;
     state.reduced = shouldReduce(s, ctx().powerUserSettings);
     state.feel = getFeel(s.feel);
-    state.vars = feelVars(state.feel, { speed: s.speed, amp: s.amp, reduced: state.reduced });
+    state.vars = feelVars(state.feel, { speed: s.speed, amp: s.amp, reduced: state.reduced, bigBounce: s.panelBounce === 'full' });
     state.modules = new Set(MODULES.filter(m => s.modules[m]));
 
     root.classList.toggle('me-on', state.on);
@@ -70,6 +75,7 @@ export function apply() {
     root.classList.toggle('me-lite', state.on && !!s.lite);
     root.classList.toggle('me-override', state.on && !!s.override);
     root.classList.toggle('me-reduced', state.on && state.reduced);
+    root.classList.toggle('me-select', state.on && !!s.customSelect && CSS.supports('appearance', 'base-select'));
     root.dataset.meFeel = state.feel.id;
 
     let style = document.getElementById('me-vars');

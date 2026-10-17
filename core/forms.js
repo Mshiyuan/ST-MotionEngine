@@ -68,12 +68,16 @@ export function panelTracks(el, dir, o) {
     const h = rect.height || innerHeight * 0.6;
     const w = rect.width || innerWidth;
     const amp = o.amp ?? 1;
-    // 位移按面板高度算，手机上全屏面板也看得出来；幅度 0–2
-    const d = Math.max(8, Math.min(220, h * 0.07 * o.k * amp));
+    const sc = (x) => String(+Math.min(3, Math.max(0.05, x)).toFixed(3));
+    // 位移按面板高度算，手机上全屏面板也看得出来；幅度 0–3
+    const d = Math.max(8, Math.min(320, h * 0.07 * o.k * amp));
     const inDur = dur('--me-p-in-dur'), outDur = dur('--me-p-out-dur');
     const D = dir === 'in' ? inDur : outDur;
-    const ease = dir === 'in' ? v('--me-p-in') : v('--me-out');
-    const fadeEase = dir === 'in' ? v('--me-fade') : v('--me-out');
+    const ease = dir === 'in' ? v('--me-p-in') : v('--me-p-out');
+    // 退场透明度匀速：前慢后快的曲线会让面板最后几帧才突然消失，掉一帧就像闪了一下
+    const fadeEase = dir === 'in' ? v('--me-fade') : v('--me-fade-out');
+    // 大面板形变倍数（设置「大面板回弹」：减弱 = 1，与小部件一致 = 2.2）
+    const big = parseFloat(v('--me-big')) || 1;
     const fadeDur = dir === 'in' ? D * 0.6 : D;
     const side = sideOf(el, o.iconRect);
     const icon = o.iconRect;
@@ -94,14 +98,15 @@ export function panelTracks(el, dir, o) {
     let form = o.form;
     // 简化模式：只淡入淡出
     if (o.lite || state.reduced) form = 'fade-lite';
-    // 固定背景：不移动、不缩放元素本身，改用裁剪
-    if (o.fixedBg && !['fade', 'fade-lite', 'dissolve', 'focus', 'curtain'].includes(form)) {
-        form = { drop: 'clip-top', 'drop-back': 'clip-top', rise: 'clip-bottom', sink: 'clip-bottom', float: 'clip-top', side: side < 0 ? 'clip-left' : 'clip-right' }[form] || 'clip-icon';
-    }
+    // 固定背景（background-attachment: fixed）：元素一移动或缩放，背景就跟着走，结束时再跳回。
+    // 以前改用裁剪（clip-path），但裁剪动画在主线程执行，切换面板时的长帧会把它吃掉，旧面板一下子消失，看上去在闪。
+    // 现在只做透明度：在合成线程执行，主线程再忙也照常播放。
+    if (o.fixedBg && form !== 'fade-lite') form = 'fade-only';
 
     if (o.form === 'none') return { tracks: [], origin, form: 'none' };
     switch (form) {
         case 'fade-lite':
+        case 'fade-only':
             fade();
             break;
         case 'drop':
@@ -110,7 +115,7 @@ export function panelTracks(el, dir, o) {
         case 'drop-back': // 收回时先轻轻往下沉一点再快速收走（蓄力）
             if (dir === 'in') { fade(); move({ translate: `0 ${-d}px` }); break; }
             fade();
-            T.push([[{ translate: '0 0' }, { translate: `0 ${d * 0.15}px`, offset: 0.3 }, { translate: `0 ${-d * 1.2}px` }], { duration: D * 1.2, easing: 'cubic-bezier(0.5, 0, 0.75, 0)' }]);
+            T.push([[{ translate: '0 0' }, { translate: `0 ${d * 0.15 * big}px`, offset: 0.3 }, { translate: `0 ${-d * 1.2}px` }], { duration: D * 1.2, easing: 'cubic-bezier(0.5, 0, 0.75, 0)' }]);
             break;
         case 'rise':
         case 'sink':
@@ -127,51 +132,33 @@ export function panelTracks(el, dir, o) {
             break;
         }
         case 'icon': {
-            const s0 = icon ? Math.max(0.12, 0.35 - 0.1 * amp) : 0.85;
+            const s0 = icon ? Math.max(0.05, 0.35 - 0.1 * amp) : sc(1 - 0.15 * amp);
             fade(); move({ scale: `${s0}` });
             break;
         }
         case 'pop':
             fade();
-            if (dir === 'in') move({ scale: String(1 - 0.08 * amp) });
-            else T.push([[{ scale: '1' }, { scale: String(1 + 0.025 * amp), offset: 0.35 }, { scale: String(1 - 0.12 * amp) }], { duration: D * 1.2, easing: 'ease-in' }]);
+            if (dir === 'in') move({ scale: sc(1 - 0.08 * amp * big) });
+            else T.push([[{ scale: '1' }, { scale: sc(1 + 0.025 * amp * big), offset: 0.35 }, { scale: sc(1 - 0.12 * amp * big) }], { duration: D * 1.2, easing: 'ease-in' }]);
             break;
         case 'squash': // 压扁再消失
-            if (dir === 'in') { fade(); move({ scale: `${1 + 0.05 * amp} ${1 - 0.1 * amp}` }); break; }
+            if (dir === 'in') { fade(); move({ scale: `${sc(1 + 0.05 * amp * big)} ${sc(1 - 0.1 * amp * big)}` }); break; }
             T.push([[{ opacity: 1 }, { opacity: 1, offset: 0.4 }, { opacity: 0 }], { duration: D * 1.3, easing: 'linear' }]);
-            T.push([[{ scale: '1 1' }, { scale: `${1 + 0.04 * amp} ${1 - 0.08 * amp}`, offset: 0.4 }, { scale: `${1 - 0.1 * amp} ${1 + 0.02 * amp}` }], { duration: D * 1.3, easing: 'ease-in' }]);
+            T.push([[{ scale: '1 1' }, { scale: `${sc(1 + 0.04 * amp * big)} ${sc(1 - 0.08 * amp * big)}`, offset: 0.4 }, { scale: `${sc(1 - 0.1 * amp * big)} ${sc(1 + 0.02 * amp * big)}` }], { duration: D * 1.3, easing: 'ease-in' }]);
             break;
         case 'jelly':
-            fade(); move({ scale: `${1 + 0.06 * amp} ${1 - 0.12 * amp}` });
+            fade(); move({ scale: `${sc(1 + 0.06 * amp * big)} ${sc(1 - 0.12 * amp * big)}` });
             break;
         case 'focus':
         case 'dissolve':
-            fade(); move({ scale: dir === 'in' ? String(1 + 0.03 * amp) : String(1 - 0.02 * amp), filter: `blur(${Math.round(6 * amp)}px)` });
+            fade(); move({ scale: dir === 'in' ? sc(1 + 0.03 * amp) : sc(1 - 0.02 * amp), filter: `blur(${Math.round(6 * Math.min(amp, 1.5))}px)` });
             break;
         case 'fade':
-            fade(); move({ scale: String(1 - 0.02 * amp) });
+            fade(); move({ scale: sc(1 - 0.02 * amp) });
             break;
-        case 'curtain':
-        case 'clip-top':
-            fade(0.6); move({ clipPath: 'inset(0 0 100% 0)' });
+        case 'curtain': // 卷帘：裁剪在主线程执行，调用方会等长帧过去再开始（见 drawers.js）
+            fade(); move({ clipPath: 'inset(0 0 100% 0)' });
             break;
-        case 'clip-bottom':
-            fade(0.6); move({ clipPath: 'inset(100% 0 0 0)' });
-            break;
-        case 'clip-left':
-            fade(0.6); move({ clipPath: 'inset(0 100% 0 0)' });
-            break;
-        case 'clip-right':
-            fade(0.6); move({ clipPath: 'inset(0 0 0 100%)' });
-            break;
-        case 'clip-icon': {
-            const at = icon ? origin : '50% 0';
-            fade(0.4); move({ clipPath: `circle(0px at ${at})` });
-            // 终点半径要盖住整个面板
-            const r = Math.hypot(w, h);
-            for (const [kf] of T) for (const f of kf) if (f.clipPath === 'inset(0 0 0 0)') f.clipPath = `circle(${r}px at ${at})`;
-            break;
-        }
         default:
             fade(); move({ translate: `0 ${-d}px` });
     }

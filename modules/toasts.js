@@ -32,7 +32,7 @@ export function installToasts() {
             const dy = (fromTop(el) ? -1 : 1) * 10;
             const D = dur('--me-out-dur');
             play(el, 'toast', [
-                [[{ opacity: 1 }, { opacity: 0 }], { duration: D, easing: v('--me-out') }],
+                [[{ opacity: 1 }, { opacity: 0 }], { duration: D, easing: v('--me-fade-out') }],
                 [[{ translate: '0 0', scale: '1' }, { translate: `0 ${dy}px`, scale: '0.96' }], { duration: D, easing: v('--me-out') }],
             ]).then(ok => {
                 if (!ok) return;

@@ -27,7 +27,7 @@ export function installTransit() {
             const from = parseFloat(getComputedStyle(el).opacity);
             // 透明度轨道：从当前值到目标值（目标可能不是 1，例如「…」按钮是 0.3）
             const D = show ? dur('--me-in-dur') : dur('--me-out-dur');
-            tracks.unshift([[{ opacity: from }, { opacity: target }], { duration: show ? D * 0.6 : D, easing: show ? v('--me-fade') : v('--me-out') }]);
+            tracks.unshift([[{ opacity: from }, { opacity: target }], { duration: show ? D * 0.6 : D, easing: show ? v('--me-fade') : v('--me-fade-out') }]);
             el.style.opacity = String(target);
             play(el, 'transit', tracks).then(ok => {
                 if (ok && i === 0) complete?.call(this);

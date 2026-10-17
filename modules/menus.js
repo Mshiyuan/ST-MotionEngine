@@ -53,7 +53,7 @@ function enter(el, r, complete) {
 function exit(el, r, complete) {
     const outDur = dur('--me-out-dur');
     play(el, 'fade', [
-        [[{ opacity: 1 }, { opacity: 0 }], { duration: outDur, easing: v('--me-out') }],
+        [[{ opacity: 1 }, { opacity: 0 }], { duration: outDur, easing: v('--me-fade-out') }],
         [[{ translate: '0 0', scale: '1' }, { translate: `0 calc(${v('--me-y')} * ${(r.dy ?? 0.5) * 0.5})`, scale: String(v('--me-s')).split(' ').map(s => 1 - (1 - s) * 0.5).join(' ') }], { duration: outDur, easing: v('--me-out') }],
     ]).then(ok => {
         if (!ok) return;

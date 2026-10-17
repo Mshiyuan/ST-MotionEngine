@@ -45,7 +45,7 @@ const sJuicy = spring(420, 16);
  */
 export const FEELS = [
     { id: 'smooth', group: 'core', zh: '丝滑减速', en: 'Smooth', dzh: '出手快，后半段慢慢滑停，不回弹', den: 'Fast start, long gentle settle',
-        in: EXPO, inDur: 480, out: 'cubic-bezier(0.7, 0, 0.84, 0)', outDur: 180, y: 14, s: 0.98, blur: 0,
+        in: EXPO, inDur: 480, out: 'cubic-bezier(0.3, 0, 0.8, 0.15)', outDur: 200, y: 14, s: 0.98, blur: 0,
         press: 0.97, pressDur: 90, rel: EXPO, relDur: 400, stagger: 40 },
     { id: 'spring', group: 'core', zh: '弹簧阻尼', en: 'Spring', dzh: '轻微过冲一次再稳住', den: 'One light overshoot, then settles',
         in: sSoft.easing, inDur: sSoft.duration, out: STD_OUT, outDur: 200, fade: 'cubic-bezier(0.2, 0, 0, 1)', y: 24, s: 0.95, blur: 0,
@@ -100,44 +100,54 @@ export const GROUPS = [
 
 export const getFeel = (id) => FEELS.find(f => f.id === id) || FEELS[0];
 
-// 缩放值按幅度系数向 1 收敛；支持 "sx sy" 两个值
-const scaleBy = (s, k) => String(s).split(/\s+/).map(v => +(1 - (1 - Number(v)) * k).toFixed(3)).join(' ');
+// 缩放值按幅度系数向 1 收敛；支持 "sx sy" 两个值。幅度最大 3 倍，结果限制在 0.05–3，避免翻转
+const scaleBy = (s, k) => String(s).split(/\s+/).map(v => +Math.min(3, Math.max(0.05, 1 - (1 - Number(v)) * k)).toFixed(3)).join(' ');
 const ms = (v) => `${Math.round(v)}ms`;
 
 /**
  * 把风格换算成 CSS 变量
  * @param {object} f 风格
- * @param {{ speed: number, amp: number, reduced: boolean }} o speed 越大越快；amp 是位移和缩放的幅度系数
+ * @param {{ speed: number, amp: number, reduced: boolean, bigBounce?: boolean }} o speed 越大越快；amp 是位移和缩放的幅度系数（0–3）；
+ *   bigBounce=true 时大面板和小部件用同样的曲线与幅度（默认减弱）
  */
-export function feelVars(f, { speed = 1, amp = 1, reduced = false } = {}) {
+export function feelVars(f, { speed = 1, amp = 1, reduced = false, bigBounce = false } = {}) {
     const d = (v) => ms(v / speed);
     if (reduced) {
         // 减少动效：只保留很短的淡入淡出
         const fade = 'cubic-bezier(0.2, 0, 0, 1)';
         return {
-            '--me-in': fade, '--me-in-dur': ms(140), '--me-out': fade, '--me-out-dur': ms(100), '--me-pop-out-dur': ms(100), '--me-s-out': '1', '--me-fade': fade,
+            '--me-in': fade, '--me-in-dur': ms(140), '--me-out': fade, '--me-out-dur': ms(100), '--me-pop-out-dur': ms(100), '--me-s-out': '1', '--me-fade': fade, '--me-fade-out': 'linear',
             '--me-y': '0px', '--me-s': '1', '--me-blur': '0px',
-            '--me-p-in': fade, '--me-p-in-dur': ms(140), '--me-p-out-dur': ms(100), '--me-p-y': '0px', '--me-p-s': '1', '--me-p-blur': '0px', '--me-side-x': '0px',
+            '--me-p-in': fade, '--me-p-out': fade, '--me-p-in-dur': ms(140), '--me-p-out-dur': ms(100), '--me-p-y': '0px', '--me-p-s': '1', '--me-p-blur': '0px', '--me-side-x': '0px',
             '--me-press': '1', '--me-press-dur': '0ms', '--me-rel': fade, '--me-rel-dur': '0ms', '--me-stagger': '0ms',
+            '--me-big': '1',
         };
     }
-    const p = f.panel || {};
+    const p = bigBounce ? { in: f.in, inDur: f.inDur, y: f.y, s: f.s, blur: 0 } : (f.panel || {});
     const pIn = p.in || f.in;
-    // 大面板：位移减半、缩放向 1 收敛一半、默认不模糊，时长封顶 600ms
+    // 大面板：位移减半、缩放向 1 收敛一半、默认不模糊，时长封顶 600ms（与小部件一致时封顶 900ms）
     const pY = (p.y ?? f.y * 0.6) * amp;
     const pS = scaleBy(p.s ?? scaleBy(f.s, 0.5), amp);
-    const pInDur = Math.min(p.inDur || f.inDur, 600);
+    const pInDur = Math.min(p.inDur || f.inDur, bigBounce ? 900 : 600);
+    const stepped = String(f.out).startsWith('steps');
     return {
         '--me-in': f.in, '--me-in-dur': d(f.inDur),
         '--me-out': f.out, '--me-out-dur': d(f.outDur),
+        // 退场的透明度匀速变化。曲线前慢后快时，前大半段几乎不动、最后几帧才消失，手机上一掉帧就像闪了一下
+        '--me-fade-out': stepped ? f.out : 'linear',
         // 酒馆等弹窗关闭动画最多 500ms，超过会被截断
         '--me-pop-out-dur': ms(Math.min(f.outDur / speed, 450)),
         '--me-s-out': scaleBy(f.s, amp * 0.5),
         '--me-fade': f.fade || f.in,
         '--me-y': `${f.y * amp}px`, '--me-s': scaleBy(f.s, amp), '--me-blur': `${f.blur * Math.min(amp, 1)}px`,
-        '--me-p-in': pIn, '--me-p-in-dur': d(pInDur), '--me-p-out-dur': d(Math.min(f.outDur, 260)),
+        '--me-p-in': pIn, '--me-p-in-dur': d(pInDur),
+        // 面板退场的位移用标准加速曲线，起步不拖沓；时长 200–280ms，保证手机上至少有十来帧
+        '--me-p-out': stepped ? f.out : 'cubic-bezier(0.3, 0, 0.8, 0.15)',
+        '--me-p-out-dur': d(Math.min(Math.max(f.outDur, 200), 280)),
         '--me-p-y': `${pY}px`, '--me-p-s': pS, '--me-p-blur': `${(p.blur ?? 0) * Math.min(amp, 1)}px`,
         '--me-side-x': `${Math.max(pY, 16) * 1.5}px`,
+        // 大面板形变倍数：与小部件一致时，压扁、回弹等形变放大到小部件的程度
+        '--me-big': bigBounce ? '2.2' : '1',
         '--me-press': scaleBy(f.press, amp), '--me-press-dur': d(f.pressDur),
         '--me-rel': f.rel, '--me-rel-dur': d(f.relDur), '--me-stagger': d(f.stagger),
     };

@@ -19,7 +19,7 @@ function animateDetails(details, open) {
     const ease = open ? 'cubic-bezier(0.2, 0, 0, 1)' : 'cubic-bezier(0.4, 0, 1, 1)';
     details.style.overflow = 'hidden';
     const done = play(details, 'details', [[[{ height: `${open ? h0 : h1}px` }, { height: `${open ? h1 : h0}px` }], { duration: D, easing: ease }]]);
-    body.forEach(b => play(b, 'details-body', [[open ? [{ opacity: 0, translate: '0 -6px' }, { opacity: 1, translate: '0 0' }] : [{ opacity: 1 }, { opacity: 0 }], { duration: open ? D : D * 0.7, easing: open ? v('--me-in') : v('--me-out') }]]));
+    body.forEach(b => play(b, 'details-body', [[open ? [{ opacity: 0, translate: '0 -6px' }, { opacity: 1, translate: '0 0' }] : [{ opacity: 1 }, { opacity: 0 }], { duration: open ? D : D * 0.7, easing: open ? v('--me-in') : v('--me-fade-out') }]]));
     return done.then(ok => { details.style.overflow = ''; return ok; });
 }
 

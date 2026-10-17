@@ -14,20 +14,20 @@ import { installToasts } from './modules/toasts.js';
 import { installInline } from './modules/inline.js';
 import { installMessages } from './modules/messages.js';
 import { installDetails } from './modules/details.js';
-import { installSelect } from './modules/select.js';
+import { installIcons } from './modules/icons.js';
 import { buildPanel } from './ui/panel.js';
 
 const ctx = () => SillyTavern.getContext();
 
 async function init() {
-    window.MotionEngine = { state, get settings() { return state.settings; }, version: '0.2.0' };
+    window.MotionEngine = { state, get settings() { return state.settings; }, version: '0.3.0' };
     setLocale(ctx().getCurrentLocale?.());
     loadSettings();
     apply();
 
     // 每个模块各自 try：一个模块出错不影响其他模块
     const steps = [installOrigin, installPredecode, installPress, installMenus, installTransit, installPopups,
-        installDrawers, installPrerender, installToasts, installInline, installMessages, installDetails, installSelect];
+        installDrawers, installPrerender, installToasts, installInline, installMessages, installDetails, installIcons];
     for (const step of steps) {
         try { step(); } catch (e) { console.error(`[MotionEngine] ${step.name} failed`, e); }
     }

@@ -1,39 +1,113 @@
-/* 自绘下拉列表（modules/select.js），颜色跟随酒馆主题 */
-.me-select-list {
-    position: fixed;
-    z-index: 2147483600;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    padding: 4px;
-    border-radius: 12px;
-    box-sizing: border-box;
-    color: var(--SmartThemeBodyColor);
-    background-color: var(--SmartThemeBlurTintColor);
-    border: 1px solid var(--SmartThemeBorderColor);
-    backdrop-filter: blur(calc(var(--SmartThemeBlurStrength, 10px) + 8px));
-    -webkit-backdrop-filter: blur(calc(var(--SmartThemeBlurStrength, 10px) + 8px));
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
-    font-family: var(--mainFontFamily, inherit);
-    font-size: var(--mainFontSize, inherit);
+/* 下拉框展开动画（设置「下拉框展开动画」，根 class me-select）
+   用浏览器自带的「可自定义下拉框」（appearance: base-select，Chrome / Edge 135+）：仍是原生 <select>，
+   值、事件、键盘操作都不变，只是选项列表画在页面里，可以用 CSS 过渡做展开和收起。
+   不支持的浏览器整段不生效，保持系统列表。颜色全部取酒馆主题变量。 */
+
+@supports (appearance: base-select) {
+    :root.me-on.me-select select:not([multiple]):not([size]):not(.select2-hidden-accessible),
+    :root.me-on.me-select select:not([multiple]):not([size]):not(.select2-hidden-accessible)::picker(select) {
+        appearance: base-select;
+    }
+
+    /* 按钮部分：保持酒馆原来的样子（酒馆用背景图画箭头，浏览器自带的箭头隐藏） */
+    :root.me-on.me-select select:not([multiple]):not([size]) {
+        color: var(--SmartThemeBodyColor);
+        min-block-size: 0;
+    }
+
+    :root.me-on.me-select select::picker-icon {
+        display: none;
+    }
+
+    /* 选项列表 */
+    :root.me-on.me-select ::picker(select) {
+        box-sizing: border-box;
+        max-block-size: min(60dvh, 420px);
+        margin-block: 4px;
+        padding: 4px;
+        border: 1px solid var(--SmartThemeBorderColor);
+        border-radius: 12px;
+        color: var(--SmartThemeBodyColor);
+        /* 主题底色常是半透明的，叠三层让列表足够不透明，看不到后面的文字 */
+        background-color: var(--SmartThemeBlurTintColor);
+        background-image: linear-gradient(var(--SmartThemeBlurTintColor), var(--SmartThemeBlurTintColor)), linear-gradient(var(--SmartThemeBlurTintColor), var(--SmartThemeBlurTintColor));
+        backdrop-filter: blur(calc(var(--SmartThemeBlurStrength, 10px) + 8px));
+        -webkit-backdrop-filter: blur(calc(var(--SmartThemeBlurStrength, 10px) + 8px));
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+        font-family: var(--mainFontFamily), sans-serif;
+        font-size: var(--mainFontSize);
+        transform-origin: 50% 0;
+
+        /* 收起：用退场曲线；display 和 overlay 要一起过渡，列表才会等动画播完再移出顶层 */
+        opacity: 0;
+        translate: 0 -6px;
+        scale: 1 0.94;
+        transition:
+            opacity var(--me-out-dur, 150ms) var(--me-fade-out, linear),
+            translate var(--me-out-dur, 150ms) var(--me-out, ease-in),
+            scale var(--me-out-dur, 150ms) var(--me-out, ease-in),
+            display var(--me-out-dur, 150ms) allow-discrete,
+            overlay var(--me-out-dur, 150ms) allow-discrete;
+    }
+
+    /* 展开：用当前风格的进场曲线 */
+    :root.me-on.me-select select:open::picker(select) {
+        opacity: 1;
+        translate: 0 0;
+        scale: 1;
+        transition:
+            opacity calc(var(--me-in-dur, 300ms) * 0.6) var(--me-fade, ease-out),
+            translate var(--me-in-dur, 300ms) var(--me-in, ease-out),
+            scale var(--me-in-dur, 300ms) var(--me-in, ease-out),
+            display var(--me-in-dur, 300ms) allow-discrete,
+            overlay var(--me-in-dur, 300ms) allow-discrete;
+    }
+
+    @starting-style {
+        :root.me-on.me-select select:open::picker(select) {
+            opacity: 0;
+            translate: 0 -6px;
+            scale: 1 0.94;
+        }
+    }
+
+    /* 选项：覆盖酒馆给原生列表写的深色底 */
+    :root.me-on.me-select select option {
+        padding: 8px 12px;
+        border-radius: 8px;
+        color: inherit;
+        background-color: transparent;
+        cursor: pointer;
+    }
+
+    :root.me-on.me-select select option:checked {
+        background-color: rgba(127, 127, 127, 0.16);
+        background-color: color-mix(in srgb, var(--SmartThemeQuoteColor) 18%, transparent);
+    }
+
+    :root.me-on.me-select select option:focus-visible {
+        outline: none;
+        background-color: rgba(127, 127, 127, 0.12);
+        background-color: color-mix(in srgb, var(--SmartThemeBodyColor) 12%, transparent);
+    }
+
+    :root.me-on.me-select select option[disabled] {
+        opacity: 0.4;
+    }
+
+    :root.me-on.me-select select option::checkmark {
+        color: var(--SmartThemeQuoteColor);
+    }
+
+    :root.me-on.me-select select optgroup {
+        font-size: 0.85em;
+        opacity: 0.7;
+    }
+
+    @media (hover: hover) {
+        :root.me-on.me-select select option:hover {
+            background-color: rgba(127, 127, 127, 0.12);
+            background-color: color-mix(in srgb, var(--SmartThemeBodyColor) 10%, transparent);
+        }
+    }
 }
-
-.me-select-opt {
-    padding: 8px 12px;
-    border-radius: 8px;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-}
-
-.me-select-opt[aria-selected="true"] {
-    background: rgba(127, 127, 127, 0.16);
-    background: color-mix(in srgb, var(--SmartThemeQuoteColor) 18%, transparent);
-    box-shadow: inset 2px 0 0 var(--SmartThemeQuoteColor);
-}
-
-.me-select-opt[aria-disabled="true"] { opacity: 0.4; cursor: default; }
-
-@media (hover: hover) {
-    .me-select-opt:hover { background: rgba(127, 127, 127, 0.12); background: color-mix(in srgb, var(--SmartThemeBodyColor) 10%, transparent); }
-}
-
-.me-select-group { padding: 8px 12px 4px; font-size: 0.8em; opacity: 0.6; }
