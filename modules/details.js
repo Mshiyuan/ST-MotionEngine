@@ -1,10 +1,8 @@
-// 细节交互：思维链展开收起（单独的「思维链」开关）、编辑消息、右栏切页、消息「…」按钮、放大头像、旧式弹窗
+// 细节交互：思维链（reasoning）、编辑消息（editing）、右栏切页（tabs）、消息「…」按钮（mesmenu）、
+// 放大头像与群聊成员列表（zoom）、旧式弹窗（popups）。每项有自己的开关和分模块设置
 import { active, play, scoped } from '../core/engine.js';
 import { registerTransit, kinds } from './transit.js';
 import { registerFade } from './menus.js';
-
-// 动效参数按模块读取（开了「分模块设置」时各模块用自己的幅度和速度）
-const { dur, v } = scoped('details');
 
 // ---------- 思维链（<details class="mes_reasoning_details">） ----------
 // 展开：浏览器先显示内容，再由 toggle 事件触发动画。
@@ -65,7 +63,7 @@ function installReasoning() {
 // 都在酒馆自己的点击处理里同步完成，这里等下一帧再给新出现的东西做进场。
 function installEditing() {
     document.addEventListener('click', (e) => {
-        if (!active('details')) return;
+        if (!active('editing')) return;
         const t = /** @type {Element} */ (e.target);
         const btn = t.closest?.('.mes_edit, .mes_edit_done, .mes_edit_cancel');
         if (!btn) return;
@@ -73,6 +71,7 @@ function installEditing() {
         const entering = btn.classList.contains('mes_edit');
         requestAnimationFrame(() => {
             if (!mes?.isConnected) return;
+            const { dur, v } = scoped('editing');
             const D = dur('--me-in-dur');
             const text = mes.querySelector('.mes_text');
             if (text) play(text, 'edit', [[[{ opacity: 0, translate: '0 4px' }, { opacity: 1, translate: '0 0' }], { duration: D, easing: v('--me-in') }]]);
@@ -83,45 +82,18 @@ function installEditing() {
     }, true);
 }
 
-// ---------- 角色列表翻页 ----------
-// 点翻页按钮后，酒馆清空列表、放入新一页，再发出 CHARACTER_PAGE_LOADED。只在用户点了翻页时做动画，
-// 搜索、筛选、刷新列表不动。往后翻从右边来，往前翻从左边来，前十几个依次浮现。
-function installCharPages() {
-    let turn = null; // { dir, at }
-    document.addEventListener('click', (e) => {
-        const li = /** @type {Element} */ (e.target).closest?.('#rm_print_characters_pagination .paginationjs-prev, #rm_print_characters_pagination .paginationjs-next, #rm_print_characters_pagination .paginationjs-page');
-        if (!li || li.classList.contains('disabled') || li.classList.contains('active')) return;
-        turn = { dir: li.classList.contains('paginationjs-prev') ? -1 : 1, at: performance.now() };
-    }, true);
-    const { eventSource, eventTypes } = SillyTavern.getContext();
-    if (!eventTypes.CHARACTER_PAGE_LOADED) return;
-    eventSource.on(eventTypes.CHARACTER_PAGE_LOADED, () => {
-        if (!turn || performance.now() - turn.at > 1500 || !active('details')) { turn = null; return; }
-        const { dir } = turn;
-        turn = null;
-        const items = [...(document.getElementById('rm_print_characters_block')?.children || [])].slice(0, 14);
-        const D = dur('--me-in-dur');
-        const step = Math.min(35, Math.max(dur('--me-stagger') * 0.6, 12));
-        items.forEach((el, i) => play(el, 'page', [
-            [[{ opacity: 0 }, { opacity: 1 }], { duration: D * 0.6, delay: i * step, easing: v('--me-fade') }],
-            [[{ translate: `${dir * 28}px 0`, scale: v('--me-s') }, { translate: '0 0', scale: '1' }], { duration: D, delay: i * step, easing: v('--me-in') }],
-        ]));
-    });
-}
-
 export function installDetails() {
     installReasoning();
     installEditing();
-    installCharPages();
 
     // 右栏切页（角色列表、角色编辑、群聊、API）：往后切从右边来，往前切从左边来
-    registerTransit('#right-nav-panel .right_menu', 'details', kinds.tab(['rm_characters_block', 'rm_group_chats_block', 'rm_ch_create_block', 'rm_api_block']));
+    registerTransit('#right-nav-panel .right_menu', 'tabs', kinds.tab(['rm_characters_block', 'rm_group_chats_block', 'rm_ch_create_block', 'rm_api_block']));
     // 消息「…」：按钮依次弹出
-    registerTransit('.extraMesButtons', 'details', kinds.row);
-    registerTransit('.extraMesButtonsHint', 'details', kinds.fade);
+    registerTransit('.extraMesButtons', 'mesmenu', kinds.row);
+    registerTransit('.extraMesButtonsHint', 'mesmenu', kinds.fade);
     // 旧式弹窗
     registerTransit('#shadow_popup, #character_popup, #shadow_select_chat_popup, #dialogue_popup', 'popups', kinds.pop);
     // 放大头像、群聊成员弹出
-    registerFade('.zoomed_avatar', { mod: 'details', dy: 0.3 });
-    registerFade('#groupMemberListPopout', { mod: 'details', dy: 0.3 });
+    registerFade('.zoomed_avatar', { mod: 'zoom', dy: 0.3 });
+    registerFade('#groupMemberListPopout', { mod: 'zoom', dy: 0.3 });
 }

@@ -1,6 +1,6 @@
 // 汉堡菜单（#options）和扩展菜单（#extensionsMenu）
 // 原版用 jQuery fadeIn/fadeOut 在主线程逐帧改 opacity。这里只针对注册过的元素换成 WAAPI，其余元素照走原版。
-import { active, play, stop, scoped } from '../core/engine.js';
+import { active, play, stop, scoped, poseExtras } from '../core/engine.js';
 import { recentPointer } from '../core/origin.js';
 
 /** 选择器 → { mod: 所属模块, kind: 动画类型, anchor: 触发按钮 } */
@@ -43,10 +43,11 @@ function enter(el, r, complete) {
     setOrigin(el, r);
     const inDur = dur('--me-in-dur');
     const blur = v('--me-blur');
-    const from = { translate: `0 calc(${v('--me-y')} * ${r.dy ?? 0.5})`, scale: v('--me-s') };
+    const x = poseExtras(r.mod);
+    const from = { translate: `0 calc(${v('--me-y')} * ${r.dy ?? 0.5})`, scale: v('--me-s'), ...x.a };
     play(el, 'fade', [
         [[{ opacity: 0 }, { opacity: 1 }], { duration: inDur * 0.6, easing: v('--me-fade') }],
-        [[{ ...from }, { translate: '0 0', scale: '1' }], { duration: inDur, easing: v('--me-in') }],
+        [[{ ...from }, { translate: '0 0', scale: '1', ...x.b }], { duration: inDur, easing: v('--me-in') }],
         ...(blur !== '0px' ? [[[{ filter: `blur(${blur})` }, { filter: 'blur(0px)' }], { duration: inDur, easing: v('--me-in') }]] : []),
     ]).then(ok => { if (ok) complete?.call(el); });
 }

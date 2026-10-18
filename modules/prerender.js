@@ -23,7 +23,7 @@ function patchVisible() {
         if (!orig(elem)) return false;
         return !(enabled() && dormant(elem));
     };
-    // jQuery 的选择器引擎会缓存编译结果，已经编译过的 :visible 还拿着旧函数。
+    // jQuery 的选择器引擎会缓存编译结果，已编译的 :visible 仍引用旧函数。
     // 缓存是最近 50 条，编译一批一次性选择器把旧条目挤出去。
     const n = ($.expr.cacheLength || 50) + 10;
     for (let i = 0; i < n; i++) {

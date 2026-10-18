@@ -2,7 +2,7 @@
 // 打开：酒馆给 dialog 加 [opening] 后立刻 showModal()。插件用 CSS 把 [opening] 的关键帧去掉（酒馆随即移除该属性），
 //       再用 WAAPI 从点击位置展开，时长不受酒馆 500ms 兜底计时的限制。
 // 关闭：酒馆加 [closing]，等 animationend 后才真正关闭，所以关闭用 CSS 关键帧（见 css/popups.css）。
-import { active, play, scoped } from '../core/engine.js';
+import { active, play, scoped, poseExtras } from '../core/engine.js';
 import { offsetFromPointer } from '../core/origin.js';
 
 // 动效参数按模块读取（开了「分模块设置」时各模块用自己的幅度和速度）
@@ -16,9 +16,10 @@ function open(dlg) {
     const inDur = dur('--me-in-dur');
     const blur = v('--me-blur');
     const fromT = has ? `${dx}px ${dy}px` : `0 ${v('--me-y')}`;
+    const x = poseExtras('popups', 0.6);
     play(dlg, 'popup', [
         [[{ opacity: 0 }, { opacity: 1 }], { duration: inDur * 0.6, easing: v('--me-fade') }],
-        [[{ translate: fromT, scale: v('--me-s') }, { translate: '0 0', scale: '1' }], { duration: inDur, easing: v('--me-in') }],
+        [[{ translate: fromT, scale: v('--me-s'), ...x.a }, { translate: '0 0', scale: '1', ...x.b }], { duration: inDur, easing: v('--me-in') }],
         ...(blur !== '0px' ? [[[{ filter: `blur(${blur})` }, { filter: 'blur(0px)' }], { duration: inDur, easing: v('--me-in') }]] : []),
     ]);
     try {

@@ -44,7 +44,7 @@ function decodeAll() {
 
 const idle = (fn) => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 2000 }) : setTimeout(fn, 200));
 
-/** 已加载的图片原始尺寸（按绝对地址查）。还没加载过的顺手加载，下次就有了 */
+/** 已加载图片的原始尺寸（按绝对地址查询）。尚未加载的图片在此开始加载，下次查询时可用 */
 export function imageSize(absUrl) {
     for (const img of decoded.values()) {
         if (img.src === absUrl) return img.complete && img.naturalWidth ? { w: img.naturalWidth, h: img.naturalHeight } : null;
@@ -67,8 +67,69 @@ export function installPredecode() {
     schedule();
 }
 
+// ---------- 底色与文字对比度 ----------
+// 插件的浮层（页内选择列表、设置面板的选中块）用主题的模糊底色 SmartThemeBlurTintColor 作底。
+// 有的美化把这个颜色设成与文字同色（例如白字配不透明白底，面板背景由美化自己画成黑色），浮层上的字就看不见了。
+// 这里比较两者的对比度，不足 3:1 时在 <html> 上写与文字反差足够的 --me-surface，以及与底色反差足够的文字颜色 --me-on-tint；
+// 对比度足够时不写，沿用主题颜色。
+function parseColor(str) {
+    const m = String(str).match(/rgba?\(([^)]+)\)/);
+    if (!m) return null;
+    const [r, g, b, a = 1] = m[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+    return { r, g, b, a };
+}
+const lum = ({ r, g, b }) => {
+    const f = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+};
+const contrast = (x, y) => { const [a, b] = [lum(x), lum(y)].sort((p, q) => q - p); return (a + 0.05) / (b + 0.05); };
+
+/** 把任意 CSS 颜色值换算成 rgb() 形式 */
+function resolveColor(value) {
+    const probe = document.createElement('i');
+    probe.style.color = value;
+    probe.style.display = 'none';
+    document.body.append(probe);
+    const c = getComputedStyle(probe).color;
+    probe.remove();
+    return parseColor(c);
+}
+
+let surfaceKey = '';
+export function updateSurface() {
+    const root = document.documentElement;
+    const cs = getComputedStyle(root);
+    const tintRaw = cs.getPropertyValue('--SmartThemeBlurTintColor').trim();
+    const textRaw = cs.getPropertyValue('--SmartThemeBodyColor').trim();
+    const key = tintRaw + '|' + textRaw;
+    if (key === surfaceKey) return;
+    surfaceKey = key;
+    const tint = tintRaw && resolveColor(tintRaw);
+    const text = textRaw && resolveColor(textRaw);
+    if (!tint || !text) return;
+    // 页内列表叠三层底色，按叠加后的不透明度判断
+    const ok = 1 - (1 - tint.a) ** 3 >= 0.5 && contrast(tint, text) >= 3;
+    if (ok) {
+        root.style.removeProperty('--me-surface');
+        root.style.removeProperty('--me-on-tint');
+    } else {
+        root.style.setProperty('--me-surface', lum(text) > 0.4 ? 'rgba(30, 30, 32, 0.97)' : 'rgba(248, 248, 250, 0.97)');
+        // 直接画在主题底色上的文字（例如酒馆弹窗里的快捷面板）改用与底色反差足够的颜色
+        root.style.setProperty('--me-on-tint', lum(tint) > 0.4 ? '#1e1e20' : '#f4f4f6');
+    }
+}
+
+export function installSurface() {
+    updateSurface();
+    // 酒馆调整主题颜色时写在 <html> 的 style 上；换主题时 head 里的样式会变
+    let pending = 0;
+    const later = () => { if (!pending) pending = requestAnimationFrame(() => { pending = 0; updateSurface(); }); };
+    new MutationObserver(later).observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
+    new MutationObserver(later).observe(document.head, { childList: true, subtree: true, characterData: true });
+}
+
 // ---------- 固定背景 ----------
-// 美化常给面板写 background-attachment: fixed。面板一旦有位移或缩放，固定背景会跟着动，结束时再跳回原位。
+// 美化常给面板设置 background-attachment: fixed。面板位移或缩放时固定背景随之移动，结束时回到原位。
 // 这类面板改用不移动背景的动法（裁剪展开、淡入淡出）。
 const fixedCache = new WeakMap();
 let themeGen = 0;

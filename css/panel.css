@@ -1,9 +1,12 @@
-/* 设置面板
-   颜色全部来自酒馆主题变量：正文 SmartThemeBodyColor、强调 SmartThemeQuoteColor、边框 SmartThemeBorderColor、底色 SmartThemeBlurTintColor。
-   浅色填充用正文色按比例混入透明，深浅主题都适用。
-   选中态：强调色描边 + 强调色浅底 + 勾，文字颜色不变，任何主题下都看得清。 */
+/* 设置面板（完整设置 #me-settings、魔棒快捷面板 #me-quick）
+   颜色只取酒馆主题变量：正文 SmartThemeBodyColor、强调 SmartThemeQuoteColor、边框 SmartThemeBorderColor。
+   带文字的底色用正文色按比例混入透明，所以底色与文字同源，任何主题下都分得清；
+   需要不透明底色的地方（指示块、预览里的菜单和提示）用 --me-surface：主题模糊底色与文字对比度足够时就是主题底色，
+   不够时由 core/guard.js 换成与文字反差足够的颜色。
+   选中态：强调色描边 + 强调色浅底 + 勾，文字颜色不变。
+   动画曲线和时长取当前风格的变量（--me-in、--me-rel 等），面板自身的动画跟随所选风格。 */
 
-#me-settings {
+:is(#me-settings, #me-quick) {
     --me-text: var(--SmartThemeBodyColor, currentColor);
     --me-accent: var(--SmartThemeQuoteColor, currentColor);
     --me-line: var(--SmartThemeBorderColor, rgba(127, 127, 127, 0.3));
@@ -13,213 +16,266 @@
     --me-fill-2: color-mix(in srgb, var(--me-text) 16%, transparent);
     --me-sel: rgba(127, 127, 127, 0.16);
     --me-sel: color-mix(in srgb, var(--me-accent) 16%, transparent);
+    --me-raise: var(--me-surface, var(--SmartThemeBlurTintColor, rgba(127, 127, 127, 0.3)));
     --me-spring: linear(0, 0.038, 0.119, 0.226, 0.355, 0.475, 0.588, 0.699, 0.786, 0.859, 0.922, 0.967, 0.999, 1.024, 1.038, 1.045, 1.048, 1.047, 1.043, 1.038, 1.032, 1.026, 1.02, 1.015, 1.011, 1.007, 1.004, 1.002, 1, 0.999, 0.998, 0.998, 0.998, 0.998, 0.998, 0.998, 0.998, 0.999, 0.999, 0.999, 1);
+    --me-ui-ease: var(--me-in, var(--me-spring));
+    --me-ui-dur: var(--me-in-dur, 500ms);
     color: var(--me-text);
 }
 
-#me-settings .me-body { display: flex; flex-direction: column; gap: 18px; padding: 6px 2px 4px; }
-#me-settings .me-dim { display: flex; flex-direction: column; gap: 18px; transition: opacity 240ms ease; }
-#me-settings .me-dim.me-disabled { opacity: 0.4; pointer-events: none; }
-#me-settings button { font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-#me-settings [hidden] { display: none !important; }
+:is(#me-settings, #me-quick) .me-body { display: flex; flex-direction: column; gap: 18px; padding: 6px 2px 4px; }
+:is(#me-settings, #me-quick) .me-dim { display: flex; flex-direction: column; gap: 18px; transition: opacity 240ms ease; }
+:is(#me-settings, #me-quick) .me-dim.me-disabled { opacity: 0.4; pointer-events: none; }
+:is(#me-settings, #me-quick) button { font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+:is(#me-settings, #me-quick) [hidden] { display: none !important; }
 
 /* 分区：小标题 + 圆角卡片 + 底部说明 */
-#me-settings .me-sec { display: flex; flex-direction: column; gap: 8px; }
-#me-settings .me-label { font-size: 0.8em; letter-spacing: 0.06em; opacity: 0.6; padding-left: 4px; }
-#me-settings .me-card { border-radius: 14px; background: var(--me-fill); overflow: hidden; }
-#me-settings .me-foot { margin: 0; padding: 0 4px; font-size: 0.8em; line-height: 1.55; opacity: 0.6; }
-#me-settings .me-sub { font-size: 0.85em; opacity: 0.7; }
-#me-settings .me-ver { margin: 0; text-align: center; font-size: 0.75em; opacity: 0.45; }
+:is(#me-settings, #me-quick) .me-sec { display: flex; flex-direction: column; gap: 8px; }
+:is(#me-settings, #me-quick) .me-label { font-size: 0.8em; letter-spacing: 0.06em; opacity: 0.6; padding-left: 4px; }
+:is(#me-settings, #me-quick) .me-card { border-radius: 14px; background: var(--me-fill); overflow: hidden; }
+:is(#me-settings, #me-quick) .me-foot { margin: 0; padding: 0 4px; font-size: 0.8em; line-height: 1.55; opacity: 0.6; }
+:is(#me-settings, #me-quick) .me-sub { font-size: 0.85em; opacity: 0.7; }
+:is(#me-settings, #me-quick) .me-ver { margin: 0; text-align: center; font-size: 0.75em; opacity: 0.45; }
 
 /* 行：左边文字，右边控件 */
-#me-settings .me-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 46px; padding: 8px 14px; box-sizing: border-box; }
-#me-settings .me-row + .me-row { box-shadow: inset 0 1px 0 var(--me-fill-2); }
-#me-settings .me-lbl { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-#me-settings .me-lbl small { font-size: 0.78em; line-height: 1.45; opacity: 0.6; }
-#me-settings .me-lbl small[hidden] { display: none; }
-#me-settings .me-master .me-lbl > span { font-weight: 600; }
+:is(#me-settings, #me-quick) .me-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 46px; padding: 8px 14px; box-sizing: border-box; }
+:is(#me-settings, #me-quick) .me-row + .me-row { box-shadow: inset 0 1px 0 var(--me-fill-2); }
+:is(#me-settings, #me-quick) .me-lbl { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+:is(#me-settings, #me-quick) .me-lbl small { font-size: 0.78em; line-height: 1.45; opacity: 0.6; }
+:is(#me-settings, #me-quick) .me-master .me-lbl > span { font-weight: 600; }
 
-/* 开关：滑块走弹簧；按下时滑块朝要去的方向拉长 */
-#me-settings .me-switch {
+/* 开关：滑块按当前风格的松手曲线移动；按下时滑块朝要去的方向拉长 */
+:is(#me-settings, #me-quick) .me-switch {
     position: relative; flex: none; width: 44px; height: 26px; margin: 0; padding: 0; border: 0; border-radius: 13px;
     background: var(--me-fill-2); transition: background-color 240ms ease; touch-action: manipulation;
 }
-#me-settings .me-switch::after {
+:is(#me-settings, #me-quick) .me-switch::after {
     content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 10px;
     background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-    transform-origin: left center; transition: transform 460ms var(--me-spring);
+    transform-origin: left center; transition: transform max(var(--me-rel-dur, 460ms), 120ms) var(--me-rel, var(--me-spring));
 }
-#me-settings .me-switch[aria-checked="true"] { background: var(--me-accent); }
-#me-settings .me-switch[aria-checked="true"]::after { transform: translateX(18px); }
-#me-settings .me-switch.me-pressing::after { transform: scaleX(1.25); transition: transform 160ms ease-out; }
-#me-settings .me-switch[aria-checked="true"].me-pressing::after { transform-origin: right center; transform: translateX(18px) scaleX(1.25); }
+:is(#me-settings, #me-quick) .me-switch[aria-checked="true"] { background: var(--me-accent); }
+:is(#me-settings, #me-quick) .me-switch[aria-checked="true"]::after { transform: translateX(18px); }
+:is(#me-settings, #me-quick) .me-switch.me-pressing::after { transform: scaleX(1.25); transition: transform 160ms ease-out; }
+:is(#me-settings, #me-quick) .me-switch[aria-checked="true"].me-pressing::after { transform-origin: right center; transform: translateX(18px) scaleX(1.25); }
+:is(#me-settings, #me-quick) .me-switch-sm { width: 36px; height: 22px; border-radius: 11px; }
+:is(#me-settings, #me-quick) .me-switch-sm::after { top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 8px; }
+:is(#me-settings, #me-quick) .me-switch-sm[aria-checked="true"]::after { transform: translateX(14px); }
+:is(#me-settings, #me-quick) .me-switch-sm[aria-checked="true"].me-pressing::after { transform: translateX(14px) scaleX(1.25); }
 
-/* 分段切换条（风格分组、大面板回弹）：指示块滑动，按 --n 等分 */
-#me-settings .me-seg { position: relative; display: grid; grid-template-columns: repeat(var(--n, 4), 1fr); padding: 3px; border-radius: 12px; background: var(--me-fill); }
-#me-settings .me-ind {
-    position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / var(--n, 4)); border-radius: 9px;
-    background: var(--SmartThemeBlurTintColor, var(--me-fill-2)); border: 1px solid var(--me-line); box-sizing: border-box;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
-    transform: translateX(calc(var(--i, 0) * 100%)); transition: transform 560ms var(--me-spring);
+/* 分组条：可横向滑动；指示块由脚本放到选中项下面 */
+:is(#me-settings, #me-quick) .me-seg-wrap { overflow-x: auto; scrollbar-width: none; border-radius: 12px; background: var(--me-fill); -webkit-overflow-scrolling: touch; }
+:is(#me-settings, #me-quick) .me-seg-wrap::-webkit-scrollbar { display: none; }
+:is(#me-settings, #me-quick) .me-seg[role="tablist"] { position: relative; display: flex; gap: 2px; padding: 3px; min-width: 100%; width: max-content; box-sizing: border-box; }
+:is(#me-settings, #me-quick) .me-seg[role="tablist"] > button {
+    position: relative; flex: 1 0 auto; margin: 0; padding: 7px 14px; border: 0; background: none; font-size: 0.9em; white-space: nowrap;
+    opacity: 0.6; transition: opacity 200ms ease;
 }
-#me-settings .me-seg button { position: relative; margin: 0; padding: 7px 2px; border: 0; background: none; font-size: 0.9em; opacity: 0.6; transition: opacity 200ms ease; }
-#me-settings .me-seg button[aria-selected="true"] { opacity: 1; font-weight: 600; }
-#me-settings .me-seg-sm { flex: none; margin-left: auto; padding: 2px; border-radius: 10px; background: var(--me-fill-2); }
-#me-settings .me-seg-sm .me-ind { top: 2px; bottom: 2px; left: 2px; width: calc((100% - 4px) / var(--n, 2)); border-radius: 8px; }
-#me-settings .me-seg-sm button { padding: 5px 10px; font-size: 0.85em; white-space: nowrap; }
+:is(#me-settings, #me-quick) .me-seg[role="tablist"] > button[aria-selected="true"] { opacity: 1; font-weight: 600; }
+:is(#me-settings, #me-quick) .me-seg[role="tablist"] > .me-ind {
+    position: absolute; top: 3px; bottom: 3px; left: 0; width: 0; border-radius: 9px;
+    background: var(--me-raise); border: 1px solid var(--me-line); box-sizing: border-box; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+    transition: translate var(--me-ui-dur) var(--me-ui-ease), width var(--me-ui-dur) var(--me-ui-ease), opacity 200ms ease;
+}
+:is(#me-settings, #me-quick) .me-tagtab i { margin-right: 5px; font-size: 0.8em; opacity: 0.7; }
+:is(#me-settings, #me-quick) .me-seg-add { flex: none !important; opacity: 0.75 !important; font-size: 0.85em !important; }
+:is(#me-settings, #me-quick) .me-tagbar { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 2px; }
 
-/* 风格卡片：名称、说明、这种风格的运动曲线（横轴时间，竖轴进度；虚线是终点，冲过虚线就是回弹） */
-#me-settings .me-feels { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
-#me-settings .me-feel {
+/* 两项选择（强度随面积）：等分，指示块按 --i 移动 */
+:is(#me-settings, #me-quick) .me-seg-sm {
+    position: relative; display: grid; grid-template-columns: repeat(var(--n, 2), 1fr); flex: none; margin-left: auto;
+    padding: 2px; border-radius: 10px; background: var(--me-fill-2);
+}
+:is(#me-settings, #me-quick) .me-seg-sm .me-ind {
+    position: absolute; top: 2px; bottom: 2px; left: 2px; width: calc((100% - 4px) / var(--n, 2)); border-radius: 8px;
+    background: var(--me-raise); border: 1px solid var(--me-line); box-sizing: border-box; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+    transform: translateX(calc(var(--i, 0) * 100%)); transition: transform var(--me-ui-dur) var(--me-ui-ease);
+}
+:is(#me-settings, #me-quick) .me-seg-sm button { position: relative; margin: 0; padding: 5px 10px; border: 0; background: none; font-size: 0.85em; white-space: nowrap; opacity: 0.6; }
+:is(#me-settings, #me-quick) .me-seg-sm button[aria-selected="true"] { opacity: 1; font-weight: 600; }
+
+/* 风格卡片：名称、说明、运动曲线（横轴时间，竖轴进度；虚线是终点，越过虚线为回弹）、自动标签、标签按钮 */
+:is(#me-settings, #me-quick) .me-feels { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+:is(#me-settings, #me-quick) .me-feel {
     position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 3px; margin: 0; padding: 9px 12px 8px;
     text-align: left; border-radius: 12px; border: 1.5px solid transparent; background: var(--me-fill);
-    transition: border-color 200ms ease, background-color 200ms ease;
+    transition: border-color 200ms ease, background-color 200ms ease, box-shadow 200ms ease;
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
 }
-#me-settings .me-feel-name { font-weight: 600; padding-right: 18px; }
-#me-settings .me-feel-desc { font-size: 0.76em; line-height: 1.4; opacity: 0.65; min-height: 2.8em; }
-#me-settings .me-curve { display: block; width: 100%; height: 26px; margin-top: 2px; overflow: visible; }
-#me-settings .me-curve path { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; opacity: 0.5; }
-#me-settings .me-curve-goal { stroke: currentColor; stroke-width: 1; stroke-dasharray: 2 3; opacity: 0.25; vector-effect: non-scaling-stroke; }
-#me-settings .me-check { position: absolute; top: 10px; right: 10px; font-size: 0.85em; color: var(--me-accent); opacity: 0; }
-#me-settings .me-feel[aria-pressed="true"] { border-color: var(--me-accent); background: var(--me-sel); }
-#me-settings .me-feel[aria-pressed="true"] .me-check { opacity: 1; }
-#me-settings .me-feel[aria-pressed="true"] .me-curve path { stroke: var(--me-accent); opacity: 1; }
+:is(#me-settings, #me-quick) .me-feel-name { font-weight: 600; padding-right: 18px; }
+:is(#me-settings, #me-quick) .me-feel-desc { font-size: 0.76em; line-height: 1.4; opacity: 0.65; min-height: 2.8em; }
+:is(#me-settings, #me-quick) .me-curve { display: block; width: 100%; height: 26px; margin-top: 2px; overflow: visible; }
+:is(#me-settings, #me-quick) .me-curve path { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; opacity: 0.5; }
+:is(#me-settings, #me-quick) .me-curve-goal { stroke: currentColor; stroke-width: 1; stroke-dasharray: 2 3; opacity: 0.25; vector-effect: non-scaling-stroke; }
+:is(#me-settings, #me-quick) .me-feel-meta { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 3px; padding-right: 28px; }
+:is(#me-settings, #me-quick) .me-feel-meta i { font-style: normal; font-size: 0.7em; padding: 1px 6px; border-radius: 999px; background: var(--me-fill-2); opacity: 0.85; }
+:is(#me-settings, #me-quick) .me-feel-tagbtn {
+    position: absolute; right: 4px; bottom: 4px; display: flex; align-items: center; gap: 3px; min-width: 28px; height: 26px; padding: 0 6px;
+    justify-content: center; border-radius: 8px; font-size: 0.75em; opacity: 0.45; box-sizing: border-box;
+}
+:is(#me-settings, #me-quick) .me-feel-tagbtn.me-has { opacity: 0.9; color: var(--me-accent); }
+:is(#me-settings, #me-quick) .me-feel-tagbtn b { font-weight: 600; }
+:is(#me-settings, #me-quick) .me-feel-tagbtn:active { background: var(--me-fill-2); }
+:is(#me-settings, #me-quick) .me-check { position: absolute; top: 10px; right: 10px; font-size: 0.85em; color: var(--me-accent); opacity: 0; }
+:is(#me-settings, #me-quick) .me-feel[aria-pressed="true"] { border-color: var(--me-accent); background: var(--me-sel); }
+:is(#me-settings, #me-quick) .me-feel[aria-pressed="true"] .me-check { opacity: 1; }
+:is(#me-settings, #me-quick) .me-feel[aria-pressed="true"] .me-curve path { stroke: var(--me-accent); opacity: 1; }
+:is(#me-settings, #me-quick) .me-feel-new { justify-content: center; align-items: center; text-align: center; border-style: dashed; border-color: var(--me-line); }
+:is(#me-settings, #me-quick) .me-feel-new .me-feel-name { padding: 0; }
+:is(#me-settings, #me-quick) .me-feel-new .me-feel-desc { min-height: 0; }
+/* 拖动排序：浮起的卡片在最上层，带阴影；拖动期间其他卡片不响应悬停 */
+:is(#me-settings, #me-quick) .me-feel.me-lift { z-index: 5; scale: 1.04; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3); transition: scale 160ms ease-out, box-shadow 160ms ease-out; }
+:is(#me-settings, #me-quick).me-dragging .me-feels { touch-action: none; }
+
+/* 标签设置 */
+:is(#me-settings, #me-quick) .me-sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+:is(#me-settings, #me-quick) .me-icon-btn { margin: 0; width: 30px; height: 30px; border: 0; border-radius: 50%; background: var(--me-fill-2); }
 
 /* 预览：上面一排标签，下面一块演示区，只显示当前标签的样本。轻点演示区播放 */
-#me-settings .me-tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 1px 1px 2px; -webkit-overflow-scrolling: touch; }
-#me-settings .me-tabs::-webkit-scrollbar { display: none; }
-#me-settings .me-tab {
+:is(#me-settings, #me-quick) .me-tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 1px 1px 2px; -webkit-overflow-scrolling: touch; }
+:is(#me-settings, #me-quick) .me-tabs::-webkit-scrollbar { display: none; }
+:is(#me-settings, #me-quick) .me-tab {
     flex: none; margin: 0; padding: 5px 12px; border-radius: 999px; border: 1.5px solid transparent; background: var(--me-fill); font-size: 0.85em;
     transition: border-color 200ms ease, background-color 200ms ease;
 }
-#me-settings .me-tab[aria-selected="true"] { border-color: var(--me-accent); background: var(--me-sel); font-weight: 600; }
-#me-settings .me-stage {
+:is(#me-settings, #me-quick) .me-tab[aria-selected="true"] { border-color: var(--me-accent); background: var(--me-sel); font-weight: 600; }
+:is(#me-settings, #me-quick) .me-stage {
     position: relative; display: grid; place-items: center; height: 128px; padding: 10px; border-radius: 14px;
     background: var(--me-fill); overflow: hidden; cursor: pointer; touch-action: manipulation; box-sizing: border-box;
     -webkit-tap-highlight-color: transparent;
 }
-#me-settings .me-stage-hint { position: absolute; right: 10px; bottom: 6px; font-size: 0.72em; opacity: 0.45; pointer-events: none; }
-#me-settings .me-demo { grid-area: 1 / 1; display: none; position: relative; width: 100%; height: 100%; align-items: center; justify-content: center; }
-#me-settings .me-stage[data-show="panel"] [data-demo="panel"],
-#me-settings .me-stage[data-show="button"] [data-demo="button"],
-#me-settings .me-stage[data-show="switch"] [data-demo="switch"],
-#me-settings .me-stage[data-show="checkbox"] [data-demo="checkbox"],
-#me-settings .me-stage[data-show="icon"] [data-demo="icon"],
-#me-settings .me-stage[data-show="menu"] [data-demo="menu"],
-#me-settings .me-stage[data-show="toast"] [data-demo="toast"],
-#me-settings .me-stage[data-show="list"] [data-demo="list"] { display: flex; }
-#me-settings [data-demo="panel"] { flex-direction: column; align-items: stretch; justify-content: flex-start; }
-#me-settings .me-pv-icon { position: absolute; top: 0; left: 2px; opacity: 0.7; }
-#me-settings .me-pv-panel {
+:is(#me-settings, #me-quick) .me-stage-hint { position: absolute; right: 10px; bottom: 6px; font-size: 0.72em; opacity: 0.45; pointer-events: none; }
+:is(#me-settings, #me-quick) .me-demo { grid-area: 1 / 1; display: none; position: relative; width: 100%; height: 100%; align-items: center; justify-content: center; }
+:is(#me-settings, #me-quick) .me-stage[data-show="panel"] [data-demo="panel"],
+:is(#me-settings, #me-quick) .me-stage[data-show="button"] [data-demo="button"],
+:is(#me-settings, #me-quick) .me-stage[data-show="switch"] [data-demo="switch"],
+:is(#me-settings, #me-quick) .me-stage[data-show="checkbox"] [data-demo="checkbox"],
+:is(#me-settings, #me-quick) .me-stage[data-show="icon"] [data-demo="icon"],
+:is(#me-settings, #me-quick) .me-stage[data-show="menu"] [data-demo="menu"],
+:is(#me-settings, #me-quick) .me-stage[data-show="toast"] [data-demo="toast"],
+:is(#me-settings, #me-quick) .me-stage[data-show="list"] [data-demo="list"] { display: flex; }
+:is(#me-settings, #me-quick) [data-demo="panel"] { flex-direction: column; align-items: stretch; justify-content: flex-start; }
+:is(#me-settings, #me-quick) .me-pv-icon { position: absolute; top: 0; left: 2px; opacity: 0.7; }
+:is(#me-settings, #me-quick) .me-pv-panel {
     display: flex; flex-direction: column; gap: 8px; margin: 22px 0 0; padding: 12px; border-radius: 10px; text-align: left;
-    background: var(--SmartThemeBlurTintColor, var(--me-fill-2)); border: 1px solid var(--me-line);
+    background: var(--me-raise); border: 1px solid var(--me-line);
 }
-#me-settings .me-pv-panel i,
-#me-settings .me-pv-menu i,
-#me-settings .me-pv-list i { display: block; height: 7px; border-radius: 4px; background: var(--me-fill-2); }
-#me-settings .me-pv-panel i:nth-child(2) { width: 75%; }
-#me-settings .me-pv-panel i:nth-child(3) { width: 50%; }
-#me-settings .me-pv-btn {
+:is(#me-settings, #me-quick) .me-pv-panel i,
+:is(#me-settings, #me-quick) .me-pv-menu i,
+:is(#me-settings, #me-quick) .me-pv-list i { display: block; height: 7px; border-radius: 4px; background: var(--me-fill-2); }
+:is(#me-settings, #me-quick) .me-pv-panel i:nth-child(2) { width: 75%; }
+:is(#me-settings, #me-quick) .me-pv-panel i:nth-child(3) { width: 50%; }
+:is(#me-settings, #me-quick) .me-pv-btn {
     margin: 0; padding: 9px 22px; border-radius: 999px; border: 1px solid var(--me-accent);
-    background: var(--SmartThemeBlurTintColor, transparent); touch-action: manipulation;
+    background: var(--me-sel); touch-action: manipulation;
 }
-#me-settings .me-pv-switch { position: relative; width: 52px; height: 30px; border-radius: 15px; background: var(--me-fill-2); transition: background-color 240ms ease; }
-#me-settings .me-pv-switch.me-on-state { background: var(--me-accent); }
-#me-settings .me-pv-knob { position: absolute; top: 4px; left: 5px; width: 22px; height: 22px; border-radius: 11px; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); }
-#me-settings .me-pv-check {
+:is(#me-settings, #me-quick) .me-pv-switch { position: relative; width: 52px; height: 30px; border-radius: 15px; background: var(--me-fill-2); transition: background-color 240ms ease; }
+:is(#me-settings, #me-quick) .me-pv-switch.me-on-state { background: var(--me-accent); }
+:is(#me-settings, #me-quick) .me-pv-knob { position: absolute; top: 4px; left: 5px; width: 22px; height: 22px; border-radius: 11px; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); }
+:is(#me-settings, #me-quick) .me-pv-check {
     display: grid; place-items: center; width: 30px; height: 30px; border-radius: 7px; border: 1.5px solid var(--me-line);
     background: var(--me-fill-2); transition: background-color 160ms ease, border-color 160ms ease;
 }
-#me-settings .me-pv-check i { font-size: 1em; opacity: 0; transition: opacity 120ms ease; }
-#me-settings .me-pv-check.me-on-state { background: var(--me-sel); border-color: var(--me-accent); }
-#me-settings .me-pv-check.me-on-state i { opacity: 1; color: var(--me-accent); }
-#me-settings .me-pv-glyph { font-size: 2em; opacity: 0.85; }
-#me-settings .me-pv-dim { position: absolute; top: 0; left: 2px; opacity: 0.5; }
-#me-settings .me-pv-menu {
+:is(#me-settings, #me-quick) .me-pv-check i { font-size: 1em; opacity: 0; transition: opacity 120ms ease; }
+:is(#me-settings, #me-quick) .me-pv-check.me-on-state { background: var(--me-sel); border-color: var(--me-accent); }
+:is(#me-settings, #me-quick) .me-pv-check.me-on-state i { opacity: 1; color: var(--me-accent); }
+:is(#me-settings, #me-quick) .me-pv-glyph { font-size: 2em; opacity: 0.85; }
+:is(#me-settings, #me-quick) .me-pv-dim { position: absolute; top: 0; left: 2px; opacity: 0.5; }
+:is(#me-settings, #me-quick) .me-pv-menu {
     position: absolute; top: 18px; left: 8%; width: 46%; min-width: 120px; display: flex; flex-direction: column; gap: 7px; padding: 10px;
-    border-radius: 10px; background: var(--SmartThemeBlurTintColor, var(--me-fill-2)); border: 1px solid var(--me-line);
+    border-radius: 10px; background: var(--me-raise); border: 1px solid var(--me-line);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); transform-origin: 0 0; box-sizing: border-box;
 }
-#me-settings .me-pv-menu i:nth-child(2) { width: 80%; }
-#me-settings .me-pv-toast {
+:is(#me-settings, #me-quick) .me-pv-menu i:nth-child(2) { width: 80%; }
+:is(#me-settings, #me-quick) .me-pv-toast {
     position: absolute; top: 0; left: 50%; margin-left: -80px; width: 160px; display: flex; align-items: center; justify-content: center; gap: 6px;
-    padding: 8px 4px; border-radius: 10px; font-size: 0.85em; background: var(--SmartThemeBlurTintColor, var(--me-fill-2)); border: 1px solid var(--me-line);
+    padding: 8px 4px; border-radius: 10px; font-size: 0.85em; background: var(--me-raise); border: 1px solid var(--me-line);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
-#me-settings .me-pv-toast i { color: var(--me-accent); }
-#me-settings .me-pv-list { display: flex; flex-direction: column; gap: 9px; width: 80%; }
-#me-settings .me-pv-list i:nth-child(even) { width: 70%; }
+:is(#me-settings, #me-quick) .me-pv-toast i { color: var(--me-accent); }
+:is(#me-settings, #me-quick) .me-pv-list { display: flex; flex-direction: column; gap: 9px; width: 80%; }
+:is(#me-settings, #me-quick) .me-pv-list i:nth-child(even) { width: 70%; }
 
 /* 自定义风格编辑区 */
-#me-settings .me-editor { display: flex; flex-direction: column; gap: 8px; }
-#me-settings .me-c-name { flex: 1; min-width: 0; max-width: 60%; margin: 0; }
-#me-settings .me-feel-new { justify-content: center; align-items: center; text-align: center; border-style: dashed; border-color: var(--me-line); }
-#me-settings .me-feel-new .me-feel-name { padding: 0; }
-#me-settings .me-feel-new .me-feel-desc { min-height: 0; }
+:is(#me-settings, #me-quick) .me-editor { display: flex; flex-direction: column; gap: 8px; }
+:is(#me-settings, #me-quick) .me-c-name { flex: 1; min-width: 0; max-width: 60%; margin: 0; }
+:is(#me-settings, #me-quick) .me-tools { display: flex; gap: 8px; flex-wrap: wrap; padding: 10px 12px 4px; }
+:is(#me-settings, #me-quick) .me-danger { color: var(--me-accent); }
 
-/* 选项胶囊（面板开合方式） */
-#me-settings .me-pad { padding: 10px 12px 6px; display: flex; flex-direction: column; gap: 6px; }
-#me-settings .me-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
-#me-settings .me-chip {
+/* 选项胶囊 */
+:is(#me-settings, #me-quick) .me-pad { padding: 10px 12px 6px; display: flex; flex-direction: column; gap: 6px; }
+:is(#me-settings, #me-quick) .me-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+:is(#me-settings, #me-quick) .me-chip {
     margin: 0; padding: 5px 12px; border-radius: 999px; border: 1.5px solid transparent; background: var(--me-fill-2); font-size: 0.88em;
     transition: border-color 200ms ease, background-color 200ms ease;
 }
-#me-settings .me-chip[aria-pressed="true"] { border-color: var(--me-accent); background: var(--me-sel); font-weight: 600; }
+:is(#me-settings, #me-quick) .me-chip[aria-pressed="true"] { border-color: var(--me-accent); background: var(--me-sel); font-weight: 600; }
+:is(#me-settings, #me-quick) .me-chip-add { background: none; border: 1.5px dashed var(--me-line); }
+:is(#me-settings, #me-quick) .me-chip-add i { font-size: 0.85em; margin-right: 2px; }
 /* 不分开设置时只显示一排 */
-#me-settings .me-split-out { display: none; flex-direction: column; gap: 6px; }
-#me-settings .me-split .me-split-out { display: flex; }
-#me-settings [data-sec="panel"] .me-pad + .me-row { box-shadow: inset 0 1px 0 var(--me-fill-2); }
+:is(#me-settings, #me-quick) .me-split-out { display: none; flex-direction: column; gap: 6px; }
+:is(#me-settings, #me-quick) .me-split .me-split-out { display: flex; }
+:is(#me-settings, #me-quick) [data-sec="panel"] .me-pad + .me-row { box-shadow: inset 0 1px 0 var(--me-fill-2); }
 
 /* 调节 */
-#me-settings .me-range { display: grid; grid-template-columns: 4.5em 1fr 3.4em; }
-#me-settings .me-range input { width: 100%; margin: 0; }
-#me-settings .me-range output { text-align: right; font-variant-numeric: tabular-nums; opacity: 0.8; }
-#me-settings .me-row > .me-seg-sm { margin-left: auto; }
-/* 分模块设置：开启后隐藏整体的值，显示每个模块的两条滑块 */
-#me-settings .me-permod { display: none; }
-#me-settings .me-permod-on .me-permod { display: block; }
-#me-settings .me-permod-on .me-global { display: none; }
-#me-settings .me-mod-tune { padding: 6px 0 4px; box-shadow: inset 0 1px 0 var(--me-fill-2); }
-#me-settings .me-mod-name { padding: 4px 14px 0; font-size: 0.85em; font-weight: 600; }
-#me-settings .me-mod-tune .me-range { min-height: 36px; padding-top: 2px; padding-bottom: 2px; }
-#me-settings .me-mod-tune .me-range + .me-range { box-shadow: none; }
+:is(#me-settings, #me-quick) .me-range { display: grid; grid-template-columns: 4.5em 1fr 3.4em; }
+:is(#me-settings, #me-quick) .me-range input { width: 100%; margin: 0; }
+:is(#me-settings, #me-quick) .me-range output { text-align: right; font-variant-numeric: tabular-nums; opacity: 0.8; }
+:is(#me-settings, #me-quick) .me-editor .me-range { grid-template-columns: 6.5em 1fr 3.6em; }
+/* 分模块设置：开启后隐藏整体的值，显示配置和各项的滑块 */
+:is(#me-settings, #me-quick) .me-profiles { display: none; padding: 4px 12px 10px; box-shadow: inset 0 1px 0 var(--me-fill-2); }
+:is(#me-settings, #me-quick).me-permod-on .me-profiles { display: block; }
+:is(#me-settings, #me-quick).me-permod-on .me-global { display: none; }
+:is(#me-settings, #me-quick) .me-profiles .me-chips { padding-top: 8px; }
+:is(#me-settings, #me-quick) .me-prof-acts { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 4px; }
+:is(#me-settings, #me-quick) .me-prof-note { display: block; padding-top: 4px; font-size: 0.78em; opacity: 0.6; }
+:is(#me-settings, #me-quick) .me-mod-tune { display: none; padding: 0 0 6px; }
+:is(#me-settings, #me-quick).me-permod-on .me-mod-tune { display: block; }
+:is(#me-settings, #me-quick) .me-mod-tune .me-range { min-height: 34px; padding-top: 2px; padding-bottom: 2px; padding-left: 26px; font-size: 0.9em; }
+:is(#me-settings, #me-quick) .me-mod-tune .me-range + .me-range { box-shadow: none; }
 
-/* 折叠分组：标题行做成一张卡片（字号同正文、加粗、计数小胶囊、圆形箭头），一眼看出能点开；
-   内容用 grid 行高从 0fr 过渡到 1fr 展开（内容只有十几行，逐帧排版的开销很小） */
-#me-settings .me-fold { gap: 0; }
-#me-settings .me-fold-head {
+/* 作用范围：分组小标题（名称、已开数量、本组全开 / 全关） */
+:is(#me-settings, #me-quick) .me-sg + .me-sg { box-shadow: inset 0 1px 0 var(--me-fill-2); }
+:is(#me-settings, #me-quick) .me-sg-head { display: flex; align-items: center; gap: 8px; padding: 12px 14px 4px; }
+:is(#me-settings, #me-quick) .me-sg-title { font-size: 0.8em; font-weight: 600; letter-spacing: 0.04em; opacity: 0.75; }
+:is(#me-settings, #me-quick) .me-sg-count { margin-left: auto; font-size: 0.75em; font-variant-numeric: tabular-nums; opacity: 0.55; }
+:is(#me-settings, #me-quick) .me-mod + .me-mod { box-shadow: inset 0 1px 0 var(--me-fill-2); }
+
+/* 折叠分组：标题行是一张卡片（字号同正文、加粗、计数小胶囊、圆形箭头）；
+   内容的展开收起用与酒馆折叠块相同的动画（modules/inline.js），跟随当前风格 */
+:is(#me-settings, #me-quick) .me-fold { gap: 0; }
+:is(#me-settings, #me-quick) .me-fold-head {
     display: flex; align-items: center; gap: 10px; width: 100%; margin: 0; min-height: 48px; padding: 8px 10px 8px 14px; box-sizing: border-box;
     border: 1px solid var(--me-line); border-radius: 14px; background: var(--me-fill); text-align: left;
-    transition: border-radius 300ms ease, background-color 200ms ease;
+    transition: border-radius 200ms ease, background-color 200ms ease;
 }
-#me-settings .me-fold.me-open .me-fold-head { border-radius: 14px 14px 0 0; border-bottom-color: transparent; }
-#me-settings .me-fold-title { font-weight: 600; }
-#me-settings .me-fold-count {
+:is(#me-settings, #me-quick) .me-fold.me-open .me-fold-head { border-radius: 14px 14px 0 0; border-bottom-color: transparent; }
+:is(#me-settings, #me-quick) .me-fold-title { font-weight: 600; }
+:is(#me-settings, #me-quick) .me-fold-count {
     margin-left: auto; padding: 2px 9px; border-radius: 999px; font-size: 0.78em; font-variant-numeric: tabular-nums;
     background: var(--me-sel); color: var(--me-text);
 }
-#me-settings .me-fold-count:empty { display: none; }
-#me-settings .me-fold-icon {
+:is(#me-settings, #me-quick) .me-fold-count:empty { display: none; }
+:is(#me-settings, #me-quick) .me-fold-icon {
     flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--me-fill-2);
-    font-size: 0.8em; transition: rotate 420ms var(--me-spring);
+    font-size: 0.8em; transition: rotate var(--me-ui-dur) var(--me-ui-ease);
 }
-#me-settings .me-fold-count:empty + .me-fold-icon { margin-left: auto; }
-#me-settings .me-fold.me-open .me-fold-icon { rotate: 180deg; }
-#me-settings .me-fold-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 380ms cubic-bezier(0.2, 0, 0, 1); }
-#me-settings .me-fold.me-open .me-fold-body { grid-template-rows: 1fr; }
-#me-settings .me-fold-inner { min-height: 0; overflow: hidden; }
-#me-settings .me-fold-inner > .me-card { border: 1px solid var(--me-line); border-top: 0; border-radius: 0 0 14px 14px; }
-#me-settings .me-fold-inner > .me-foot { margin-top: 8px; }
-#me-settings .me-fold:not(.me-open) .me-fold-inner { visibility: hidden; transition: visibility 0s 380ms; }
+:is(#me-settings, #me-quick) .me-fold-count:empty + .me-fold-icon { margin-left: auto; }
+:is(#me-settings, #me-quick) .me-fold.me-open .me-fold-icon { rotate: 180deg; }
+:is(#me-settings, #me-quick) .me-fold-body > .me-card { border: 1px solid var(--me-line); border-top: 0; border-radius: 0 0 14px 14px; }
 
-/* 分享设置 */
-#me-settings .me-share { padding: 10px 12px 12px; }
-#me-settings .me-code { width: 100%; box-sizing: border-box; margin: 0; font-family: monospace; font-size: 0.8em; resize: vertical; }
-#me-settings .me-share-btns { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-#me-settings .me-mini { margin: 0; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--me-line); background: var(--SmartThemeBlurTintColor, transparent); font-size: 0.85em; }
-#me-settings .me-share-msg { font-size: 0.8em; opacity: 0.7; }
+/* 小按钮 */
+:is(#me-settings, #me-quick) .me-mini { margin: 0; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--me-line); background: var(--me-fill); font-size: 0.85em; }
+:is(#me-settings, #me-quick) .me-mini:active { background: var(--me-fill-2); }
+:is(#me-settings, #me-quick) .me-full { align-self: center; padding: 8px 18px; }
 
 /* 恢复默认 */
-#me-settings .me-action { padding: 0; }
-#me-settings .me-reset { width: 100%; min-height: 46px; margin: 0; border: 0; background: none; text-align: left; padding: 0 14px; color: var(--me-accent); }
-#me-settings .me-reset:active { background: var(--me-fill-2); }
+:is(#me-settings, #me-quick) .me-action { padding: 0; }
+:is(#me-settings, #me-quick) .me-reset { width: 100%; min-height: 46px; margin: 0; border: 0; background: none; text-align: left; padding: 0 14px; color: var(--me-accent); }
+:is(#me-settings, #me-quick) .me-reset:active { background: var(--me-fill-2); }
+
+/* 快捷面板（魔棒菜单打开的弹窗）：美化常给弹窗单独配色（例如深色主题里的白底黑字弹窗），
+   所以文字颜色继承弹窗自己的，填充和指示块也由这个颜色混入透明得到，底色与文字始终同源。
+   主题底色与正文色对比不足时（弹窗本身就看不清），改用 core/guard.js 算出的 --me-on-tint */
+#me-quick { --me-text: currentColor; --me-raise: color-mix(in srgb, currentColor 16%, transparent); color: var(--me-on-tint, inherit); text-align: left; min-width: min(420px, 82vw); }
+#me-quick .me-feels { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); }

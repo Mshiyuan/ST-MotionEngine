@@ -1,7 +1,7 @@
 // 图标点击反馈：顶栏和底栏的图标点击后按当前风格做一个小动作。
 // 只动独立的 scale / rotate / translate 属性（WAAPI），美化写死的 transform、换成图片的图标照样生效。
 // 美化已经给图标写了自己的动画（animation），且没开「覆盖美化动效」时，不动它。
-import { active, playTransform, isRunning, state, ampOf } from '../core/engine.js';
+import { active, playTransform, state, ampOf, speedOf } from '../core/engine.js';
 import { spring } from '../core/tokens.js';
 
 const BAR_SELECTOR = [
@@ -13,6 +13,7 @@ const sSoft = spring(260, 14);
 const sIOS = spring(320, 30);
 const sM3 = spring(500, 22);
 const sJelly = spring(400, 9);
+const sSwing = spring(180, 6);
 const EXPO = 'cubic-bezier(0.16, 1, 0.3, 1)';
 
 /**
@@ -34,6 +35,8 @@ const FX = {
     jelly: (a) => [[[{ scale: `${s(1 + 0.25 * a)} ${s(1 - 0.25 * a)}` }, { scale: '1 1' }], { duration: sJelly.duration, easing: sJelly.easing }]],
     cinema: (a) => [[[{ opacity: 0.6, scale: s(1 + 0.1 * a) }, { opacity: 1, scale: '1' }], { duration: 800, easing: 'cubic-bezier(0.65, 0, 0.35, 1)' }]],
     steps: (a) => [[[{ scale: s(1 - 0.2 * a) }, { scale: '1' }], { duration: 240, easing: 'steps(3, end)' }]],
+    breathe: (a) => [[[{ scale: s(1 - 0.1 * a), opacity: 0.6 }, { scale: '1', opacity: 1 }], { duration: 640, easing: 'cubic-bezier(0.45, 0, 0.55, 1)' }]],
+    swing: (a) => [[[{ rotate: `${-16 * Math.min(a, 2)}deg`, transformOrigin: '50% 0' }, { rotate: '0deg', transformOrigin: '50% 0' }], { duration: sSwing.duration, easing: sSwing.easing }]],
 };
 
 /** 缩放值限制在 0.3–1.8 */
@@ -46,23 +49,9 @@ export function iconFx(el, { weak = false } = {}) {
     const fx = FX[state.feel?.id] || FX.smooth;
     const amp = Math.max(0, ampOf('icons')) * (weak ? 0.5 : 1);
     if (!amp) return Promise.resolve(true);
-    const s = state.settings;
-    const speed = (s?.perModule && s.tune?.icons?.speed) || s?.speed || 1;
+    const speed = speedOf('icons') || 1;
     const tracks = fx(amp).map(([kf, opt]) => [kf, { ...opt, duration: opt.duration / speed }]);
     return playTransform(el, 'icon', tracks);
-}
-
-/**
- * 酒馆在点击之后才切换图标的 openIcon（美化常在这时加上下划线）。下一帧再检查一次：
- * 如果现在加缩放会挤歪下划线，而元素本身还在动，就改为只动图形或停下。
- */
-function recheck(el, weak) {
-    requestAnimationFrame(() => {
-        if (!el.isConnected || el.classList.contains('me-glyph')) return;
-        if (!isRunning(el, 'icon') && !isRunning(el, 'press')) return;
-        const amp = Math.max(0, ampOf('icons'));
-        if (active('icons') && amp && !themeAnimates(el)) iconFx(el, { weak }); else playTransform(el, 'press', [[[{ scale: '1' }, { scale: '1' }], { duration: 1 }]]);
-    });
 }
 
 /** 美化给图标写了自己的动画时让开（开了「覆盖美化动效」除外） */
@@ -85,10 +74,9 @@ export function installIcons() {
         if (state.reduced || !state.on) return;
         const hit = target(/** @type {Element} */ (e.target));
         if (!hit?.el) return;
-        // 顶栏图标：关闭面板时动作减半，打开时完整
+        // 顶栏图标：关闭面板时动作减半，打开时完整。
+        // 酒馆随后才给图标加 openIcon，美化的下划线这时才出现；playTransform 会在动画途中处理（见 engine.js）
         const weak = hit.top && hit.el.classList.contains('openIcon');
-        // 按压反馈也会缩放图标，所以不管图标反馈开没开都要复查
-        if (hit.top) recheck(hit.el, weak);
         if (!active('icons') || themeAnimates(hit.el)) return;
         iconFx(hit.el, { weak });
     }, { capture: true, passive: true });

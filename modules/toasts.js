@@ -2,7 +2,7 @@
 // toastr 用 options.showMethod / hideMethod 指定的 jQuery 方法显示和隐藏提示条。
 // 这里注册两个方法替换默认的 fadeIn / fadeOut：从屏幕边缘滑入，退场更快；
 // 一条提示消失后，其余提示从原位置滑到新位置，不再跳动。
-import { active, play, scoped } from '../core/engine.js';
+import { active, play, scoped, poseExtras } from '../core/engine.js';
 
 // 动效参数按模块读取（开了「分模块设置」时各模块用自己的幅度和速度）
 const { dur, v } = scoped('toasts');
@@ -21,9 +21,10 @@ export function installToasts() {
             this.style.display = '';
             const dy = (fromTop(this) ? -1 : 1) * (16 + parseFloat(v('--me-y')));
             const D = dur('--me-in-dur');
+            const x = poseExtras('toasts');
             play(this, 'toast', [
                 [[{ opacity: 0 }, { opacity: 1 }], { duration: D * 0.6, easing: v('--me-fade') }],
-                [[{ translate: `0 ${dy}px`, scale: v('--me-s') }, { translate: '0 0', scale: '1' }], { duration: D, easing: v('--me-in') }],
+                [[{ translate: `0 ${dy}px`, scale: v('--me-s'), ...x.a }, { translate: '0 0', scale: '1', ...x.b }], { duration: D, easing: v('--me-in') }],
             ]).then(ok => ok && opt.complete?.call(this));
         });
     };

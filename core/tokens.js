@@ -29,11 +29,13 @@ const EXPO = 'cubic-bezier(0.16, 1, 0.3, 1)';
 const STD_OUT = 'cubic-bezier(0.4, 0, 1, 1)';
 
 const sSoft = spring(170, 18);      // 弹簧阻尼：轻微过冲一次
-const sJelly = spring(300, 10);     // 果冻：来回晃几次
+const sJelly = spring(300, 10);     // 果冻：往复振荡数次
 const sJellyRel = spring(260, 14);
 const sIOS = spring(230, 30);       // 接近 iOS 默认弹簧（damping ratio ≈ 1）
 const sM3Spatial = spring(380, 30); // M3 Expressive 空间弹簧（略回弹）
 const sJuicy = spring(420, 16);
+const sSwing = spring(200, 7);      // 摆动悬挂：旋转往复数次
+const sSwingPanel = spring(220, 14);
 
 /**
  * 字段说明（时长单位 ms，位移单位 px）
@@ -42,71 +44,74 @@ const sJuicy = spring(420, 16);
  * panel：大面板（抽屉、侧栏）用的参数，省略时按小元素参数自动收敛
  * press/pressDur/rel/relDur：按压缩放、按下时长、松手曲线与时长
  * stagger：多个元素依次进入的间隔
+ * spring：进场曲线由弹簧生成时的 [刚度, 阻尼]，大块元素据此按面积加大阻尼（见 engine.sized）
+ * rot：进场起始旋转角（度），以顶边为支点
  */
 export const FEELS = [
-    { id: 'smooth', group: 'core', zh: '丝滑减速', en: 'Smooth', dzh: '出手快，后半段慢慢滑停，不回弹', den: 'Fast start, long gentle settle',
+    { id: 'smooth', group: 'calm', zh: '丝滑减速', en: 'Smooth', dzh: '起步快，减速段较长，不回弹', den: 'Fast start, long gentle settle',
         in: EXPO, inDur: 480, out: 'cubic-bezier(0.3, 0, 0.8, 0.15)', outDur: 200, y: 14, s: 0.98, blur: 0,
         press: 0.97, pressDur: 90, rel: EXPO, relDur: 400, stagger: 40 },
-    { id: 'spring', group: 'core', zh: '弹簧阻尼', en: 'Spring', dzh: '轻微过冲一次再稳住', den: 'One light overshoot, then settles',
-        in: sSoft.easing, inDur: sSoft.duration, out: STD_OUT, outDur: 200, fade: 'cubic-bezier(0.2, 0, 0, 1)', y: 24, s: 0.95, blur: 0,
+    { id: 'spring', group: 'bouncy', zh: '弹簧阻尼', en: 'Spring', dzh: '越过终点一次后停稳', den: 'One light overshoot, then settles',
+        in: sSoft.easing, inDur: sSoft.duration, spring: [170, 18], out: STD_OUT, outDur: 200, fade: 'cubic-bezier(0.2, 0, 0, 1)', y: 24, s: 0.95, blur: 0,
         press: 0.95, pressDur: 90, rel: sSoft.easing, relDur: 600, stagger: 45 },
-    { id: 'soft', group: 'core', zh: '柔和淡入', en: 'Soft fade', dzh: '位移很小，主要靠淡入', den: 'Mostly fades, barely moves',
+    { id: 'soft', group: 'calm', zh: '柔和淡入', en: 'Soft fade', dzh: '以淡入为主，位移很小', den: 'Mostly fades, barely moves',
         in: 'cubic-bezier(0.05, 0.7, 0.1, 1)', inDur: 400, out: 'cubic-bezier(0.3, 0, 0.8, 0.15)', outDur: 180, y: 8, s: 1, blur: 0,
         press: 0.98, pressDur: 100, rel: 'cubic-bezier(0.2, 0, 0, 1)', relDur: 250, stagger: 30 },
-    { id: 'snappy', group: 'core', zh: '利落干脆', en: 'Snappy', dzh: '又快又准，几乎没有过程', den: 'Quick and precise',
+    { id: 'snappy', group: 'calm', zh: '利落干脆', en: 'Snappy', dzh: '时长很短，过渡几乎不可见', den: 'Quick and precise',
         in: 'cubic-bezier(0.25, 1, 0.5, 1)', inDur: 170, out: 'cubic-bezier(0.5, 0, 0.75, 0)', outDur: 110, y: 4, s: 0.97, blur: 0,
         press: 0.97, pressDur: 60, rel: 'ease-out', relDur: 120, stagger: 20 },
-    { id: 'ios', group: 'core', zh: 'iOS 原生', en: 'iOS native', dzh: '临界阻尼弹簧，从图标展开', den: 'Critically damped, grows from the icon',
-        in: sIOS.easing, inDur: sIOS.duration, out: 'cubic-bezier(0.32, 0, 0.67, 0)', outDur: 220, fade: 'cubic-bezier(0.2, 0, 0, 1)', y: 0, s: 0.9, blur: 0,
+    { id: 'ios', group: 'calm', zh: 'iOS 原生', en: 'iOS native', dzh: '临界阻尼弹簧，面板从图标处展开', den: 'Critically damped, grows from the icon',
+        in: sIOS.easing, inDur: sIOS.duration, spring: [230, 30], out: 'cubic-bezier(0.32, 0, 0.67, 0)', outDur: 220, fade: 'cubic-bezier(0.2, 0, 0, 1)', y: 0, s: 0.9, blur: 0,
         panel: { y: 40, s: 1 }, press: 0.96, pressDur: 70, rel: sIOS.easing, relDur: 450, stagger: 35 },
-    { id: 'm3', group: 'core', zh: 'Material 3 Expressive', en: 'Material 3 Expressive', dzh: '位移带回弹，透明度平稳', den: 'Springy motion, calm fades',
-        in: sM3Spatial.easing, inDur: sM3Spatial.duration, out: 'cubic-bezier(0.3, 0, 0.8, 0.15)', outDur: 200, fade: 'cubic-bezier(0.2, 0, 0, 1)', y: 20, s: 0.92, blur: 0,
+    { id: 'm3', group: 'bouncy', zh: 'Material 3 Expressive', en: 'Material 3 Expressive', dzh: '位移有回弹，透明度无回弹', den: 'Springy motion, calm fades',
+        in: sM3Spatial.easing, inDur: sM3Spatial.duration, spring: [380, 30], out: 'cubic-bezier(0.3, 0, 0.8, 0.15)', outDur: 200, fade: 'cubic-bezier(0.2, 0, 0, 1)', y: 20, s: 0.92, blur: 0,
         press: 0.95, pressDur: 80, rel: sM3Spatial.easing, relDur: 500, stagger: 40 },
-    { id: 'bouncy', group: 'lively', zh: 'Q弹回弹', en: 'Bouncy', dzh: '先蓄力再弹出，冲过头再落定', den: 'Anticipates, overshoots, lands',
+    { id: 'bouncy', group: 'bouncy', zh: 'Q弹回弹', en: 'Bouncy', dzh: '先反向蓄力，越过终点后回落', den: 'Anticipates, overshoots, lands',
         in: 'cubic-bezier(0.68, -0.6, 0.32, 1.6)', inDur: 420, out: 'cubic-bezier(0.4, 0, 0.2, 1)', outDur: 200, fade: 'ease-out', y: 0, s: 0.6, blur: 0,
         panel: { in: 'cubic-bezier(0.34, 1.3, 0.64, 1)', y: 12, s: 0.96 },
         press: 0.92, pressDur: 80, rel: 'cubic-bezier(0.34, 1.56, 0.64, 1)', relDur: 400, stagger: 50 },
-    { id: 'juicy', group: 'lively', zh: '轻触果汁', en: 'Juicy', dzh: '按下压扁，松手回弹', den: 'Squashes on press, springs back',
-        in: sJuicy.easing, inDur: sJuicy.duration, out: STD_OUT, outDur: 180, fade: 'ease-out', y: 10, s: 0.85, blur: 0,
+    { id: 'juicy', group: 'bouncy', zh: '轻触果汁', en: 'Juicy', dzh: '按下时横向压扁，松开后回弹', den: 'Squashes on press, springs back',
+        in: sJuicy.easing, inDur: sJuicy.duration, spring: [420, 16], out: STD_OUT, outDur: 180, fade: 'ease-out', y: 10, s: 0.85, blur: 0,
         panel: { in: sSoft.easing, inDur: sSoft.duration, y: 16, s: 0.97 },
         press: '1.03 0.93', pressDur: 70, rel: sJuicy.easing, relDur: 600, stagger: 45 },
-    { id: 'blur', group: 'mood', zh: '模糊聚焦', en: 'Blur focus', dzh: '从朦胧中对焦清晰', den: 'Comes into focus from a blur',
+    { id: 'blur', group: 'effect', zh: '模糊聚焦', en: 'Blur focus', dzh: '由模糊变为清晰', den: 'Comes into focus from a blur',
         in: 'cubic-bezier(0.22, 1, 0.36, 1)', inDur: 480, out: STD_OUT, outDur: 200, y: 0, s: 1.06, blur: 10,
         panel: { y: 10, s: 1.01, blur: 0 }, press: 0.96, pressDur: 80, rel: 'cubic-bezier(0.22, 1, 0.36, 1)', relDur: 350, stagger: 50 },
-    { id: 'float', group: 'mood', zh: '漂浮轻盈', en: 'Float', dzh: '像羽毛一样慢慢飘来飘走', den: 'Drifts in and out like a feather',
+    { id: 'float', group: 'effect', zh: '漂浮轻盈', en: 'Float', dzh: '位移较大、时长较长，缓慢进出', den: 'Drifts in and out like a feather',
         in: 'cubic-bezier(0.33, 1, 0.68, 1)', inDur: 700, out: 'cubic-bezier(0.32, 0, 0.67, 0)', outDur: 280, y: 30, s: 0.98, blur: 3,
         panel: { y: 24, blur: 0 }, press: 0.97, pressDur: 120, rel: 'cubic-bezier(0.33, 1, 0.68, 1)', relDur: 500, stagger: 80 },
-    { id: 'ink', group: 'mood', zh: '墨水晕开', en: 'Ink spread', dzh: '像墨水一样晕开、收起', den: 'Spreads and retracts like ink',
+    { id: 'ink', group: 'effect', zh: '墨水晕开', en: 'Ink spread', dzh: '以裁剪方式逐渐展开和收起', den: 'Spreads and retracts like ink',
         in: 'cubic-bezier(0.22, 1, 0.36, 1)', inDur: 520, out: 'cubic-bezier(0.4, 0, 1, 1)', outDur: 220, y: 6, s: 1, blur: 0, clip: true,
         press: 0.97, pressDur: 90, rel: 'cubic-bezier(0.22, 1, 0.36, 1)', relDur: 350, stagger: 40 },
-    { id: 'breathe', group: 'mood', zh: '呼吸舒展', en: 'Breathe', dzh: '像呼吸一样缓缓舒展，再轻轻呼出', den: 'Expands slowly like a breath, exhales on exit',
+    { id: 'breathe', group: 'calm', zh: '呼吸舒展', en: 'Breathe', dzh: '由略小缓慢放大；退出时略微放大并淡出', den: 'Expands slowly like a breath, exhales on exit',
         in: 'cubic-bezier(0.45, 0, 0.55, 1)', inDur: 640, out: 'cubic-bezier(0.45, 0, 0.55, 1)', outDur: 320, fade: 'cubic-bezier(0.4, 0, 0.6, 1)', y: 4, s: 0.92, blur: 2,
         panel: { y: 0, s: 0.96, blur: 0 }, press: 0.97, pressDur: 160, rel: 'cubic-bezier(0.45, 0, 0.55, 1)', relDur: 560, stagger: 70 },
-    { id: 'jelly', group: 'quirky', zh: '果冻弹性', en: 'Jelly', dzh: '压扁后来回晃几下', den: 'Wobbles after squashing',
-        in: sJelly.easing, inDur: sJelly.duration, out: 'cubic-bezier(0.4, 0, 0.2, 1)', outDur: 200, fade: 'ease-out', y: 0, s: '1.3 0.6', blur: 0,
+    { id: 'jelly', group: 'bouncy', zh: '果冻弹性', en: 'Jelly', dzh: '压扁后往复振荡数次', den: 'Wobbles after squashing',
+        in: sJelly.easing, inDur: sJelly.duration, spring: [300, 10], out: 'cubic-bezier(0.4, 0, 0.2, 1)', outDur: 200, fade: 'ease-out', y: 0, s: '1.3 0.6', blur: 0,
         panel: { in: sSoft.easing, inDur: sSoft.duration, y: 0, s: '1.03 0.94' },
         press: 0.88, pressDur: 70, rel: sJellyRel.easing, relDur: 800, stagger: 60 },
-    { id: 'cinema', group: 'quirky', zh: '优雅慢放', en: 'Cinematic', dzh: '慢起慢落，元素依次登场', den: 'Slow in, slow out',
+    { id: 'swing', group: 'bouncy', zh: '摆动悬挂', en: 'Swing', dzh: '以顶边为支点摆动数次后停稳', den: 'Swings from the top edge, then settles',
+        in: sSwing.easing, inDur: sSwing.duration, spring: [200, 7], out: STD_OUT, outDur: 200, fade: 'ease-out', y: -10, s: 1, blur: 0, rot: -8,
+        panel: { in: sSwingPanel.easing, inDur: sSwingPanel.duration, y: -12, s: 1 },
+        press: 0.96, pressDur: 80, rel: sSoft.easing, relDur: 600, stagger: 60 },
+    { id: 'cinema', group: 'calm', zh: '优雅慢放', en: 'Cinematic', dzh: '慢起慢落，多个元素间隔较长依次出现', den: 'Slow in, slow out',
         in: 'cubic-bezier(0.65, 0, 0.35, 1)', inDur: 850, out: 'cubic-bezier(0.65, 0, 0.35, 1)', outDur: 400, y: 44, s: 1, blur: 0,
         panel: { inDur: 600, y: 30 }, press: 0.98, pressDur: 150, rel: 'cubic-bezier(0.65, 0, 0.35, 1)', relDur: 500, stagger: 110 },
-    { id: 'steps', group: 'quirky', zh: '复古阶梯', en: 'Retro steps', dzh: '一格一格跳，像素游戏感', den: 'Moves in steps, like pixel games',
+    { id: 'steps', group: 'effect', zh: '复古阶梯', en: 'Retro steps', dzh: '分段跳变，没有连续过渡', den: 'Moves in steps, like pixel games',
         in: 'steps(5, end)', inDur: 400, out: 'steps(3, end)', outDur: 210, y: 20, s: 1, blur: 0,
         press: 0.9, pressDur: 0, rel: 'steps(2, end)', relDur: 120, stagger: 80 },
-    { id: 'glitch', group: 'quirky', zh: '故障闪现', en: 'Glitch', dzh: '像信号故障一样抖几下再定住', den: 'Jitters like a bad signal, then locks in',
-        in: 'linear(0, 0.55 12%, 0.3 22%, 0.85 34%, 0.7 46%, 1 58%, 0.94 74%, 1)', inDur: 380, out: 'linear(0, 0.4 25%, 0.2 40%, 0.8 60%, 1)', outDur: 200, fade: 'steps(4, jump-none)', y: 10, s: 1, blur: 0,
-        press: 0.94, pressDur: 40, rel: 'steps(3, jump-none)', relDur: 160, stagger: 45 },
 ];
 
+/** 分组：平稳 = 不回弹；弹性 = 有回弹；特效 = 模糊、裁剪、阶梯等视觉效果 */
 export const GROUPS = [
-    { id: 'core', zh: '日常', en: 'Everyday' },
-    { id: 'lively', zh: '活泼', en: 'Lively' },
-    { id: 'mood', zh: '氛围', en: 'Mood' },
-    { id: 'quirky', zh: '个性', en: 'Quirky' },
+    { id: 'calm', zh: '平稳', en: 'Calm' },
+    { id: 'bouncy', zh: '弹性', en: 'Bouncy' },
+    { id: 'effect', zh: '特效', en: 'Effects' },
 ];
 
 export const getFeel = (id) => FEELS.find(f => f.id === id) || FEELS[0];
 
-// 缩放值按幅度系数向 1 收敛；支持 "sx sy" 两个值。幅度最大 3 倍，结果限制在 0.05–3，避免翻转
+// 缩放值按幅度系数向 1 收敛，支持 "sx sy" 两个值。结果限制在 0.05–3，避免翻转
 const scaleBy = (s, k) => String(s).split(/\s+/).map(v => +Math.min(3, Math.max(0.05, 1 - (1 - Number(v)) * k)).toFixed(3)).join(' ');
 const ms = (v) => `${Math.round(v)}ms`;
 
@@ -139,7 +144,7 @@ export function feelVars(f, { speed = 1, amp = 1, reduced = false, bigBounce = f
     return {
         '--me-in': f.in, '--me-in-dur': d(f.inDur),
         '--me-out': f.out, '--me-out-dur': d(f.outDur),
-        // 退场的透明度匀速变化。曲线前慢后快时，前大半段几乎不动、最后几帧才消失，手机上一掉帧就像闪了一下
+        // 退场的透明度匀速变化。曲线前慢后快时，前段几乎不变、最后几帧才消失，掉帧时表现为闪烁
         '--me-fade-out': stepped ? f.out : 'linear',
         // 酒馆等弹窗关闭动画最多 500ms，超过会被截断
         '--me-pop-out-dur': ms(Math.min(f.outDur / speed, 450)),

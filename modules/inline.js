@@ -21,6 +21,7 @@ const TALL_PX = 360;
 const heavy = new WeakMap(); // el → 上次展开时是否判定为重
 
 function spinIcon(el) {
+    if (!el.parentElement?.classList.contains('inline-drawer')) return;
     const icon = el.parentElement?.querySelector(':scope > .inline-drawer-header .inline-drawer-icon, :scope > .inline-drawer-toggle .inline-drawer-icon');
     if (!icon) return;
     play(icon, 'spin', [[[{ rotate: '-180deg' }, { rotate: '0deg' }], { duration: dur('--me-in-dur'), easing: v('--me-p-in') }]]);
@@ -33,7 +34,7 @@ function expand(el, opt) {
     const t0 = performance.now();
     const h = el.getBoundingClientRect().height;
     const cs = getComputedStyle(el);
-    const isHeavy = performance.now() - t0 > HEAVY_LAYOUT_MS || h > TALL_PX;
+    const isHeavy = !opt.light && (performance.now() - t0 > HEAVY_LAYOUT_MS || h > TALL_PX);
     heavy.set(el, isHeavy);
     const pt = cs.paddingTop, pb = cs.paddingBottom;
     const D = dur('--me-p-in-dur');
@@ -51,7 +52,7 @@ function expand(el, opt) {
         tracks.push([[{ height: '0px', paddingTop: '0px', paddingBottom: '0px' }, { height: `${h}px`, paddingTop: pt, paddingBottom: pb }], { duration: D, easing: 'cubic-bezier(0.2, 0, 0, 1)' }]);
     }
     spinIcon(el);
-    // 内容多时，显示新内容的那一帧要排版很久；等它画完再开始，动画不会被这段时间吃掉
+    // 内容多时，显示新内容的那一帧排版耗时较长；等这一帧绘制完成再开始，排版时间不会计入动画进度
     play(el, 'slide', tracks, { defer: isHeavy }).then(ok => {
         if (!ok) return;
         el.style.overflow = '';
@@ -62,8 +63,8 @@ function expand(el, opt) {
 function collapse(el, opt) {
     intent.set(el, 'closed');
     const D = dur('--me-p-out-dur');
-    // 没经插件展开过的（页面加载时就是展开的），按高度判断
-    const isHeavy = heavy.has(el) ? heavy.get(el) : el.getBoundingClientRect().height > TALL_PX;
+    // 未经插件展开的（页面加载时已展开），按高度判断
+    const isHeavy = !opt.light && (heavy.has(el) ? heavy.get(el) : el.getBoundingClientRect().height > TALL_PX);
     const tracks = [[[{ opacity: 1 }, { opacity: 0 }], { duration: isHeavy ? D * 0.7 : D, easing: v('--me-fade-out') }]];
     if (isHeavy) tracks.push([[{ translate: '0 0' }, { translate: '0 -8px' }], { duration: D * 0.7, easing: v('--me-p-out') }]);
     if (!simple() && !isHeavy) {
@@ -80,6 +81,15 @@ function collapse(el, opt) {
         intent.delete(el);
         opt.complete?.call(el);
     });
+}
+
+/**
+ * 在任意元素上播放折叠块的展开 / 收起（设置面板自己的折叠组也用这一套，跟随当前风格）。
+ * 收起结束后元素为 display: none。light=true 时总是做高度过渡（内容少、不在长页面里时用）
+ * @returns {Promise<void>}
+ */
+export function toggleBlock(el, open, { light = false } = {}) {
+    return new Promise(resolve => (open ? expand : collapse)(el, { complete: resolve, light }));
 }
 
 export function installInline() {

@@ -17,7 +17,7 @@ export const PRESS_SELECTOR = [
 
 const pressed = new Set();
 
-/** 大元素压得少一点，避免整行列表缩得很明显 */
+/** 宽度较大的元素减小按压幅度，避免整行列表明显缩小 */
 function pressScale(el) {
     const base = String(v('--me-press') || '1').split(/\s+/).map(Number);
     const w = el.offsetWidth;

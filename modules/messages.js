@@ -1,6 +1,6 @@
 // 聊天消息：新消息浮现、进入聊天时最后几条依次登场、切换回复（swipe）
 // 只观察 #chat 的直接子节点增减（childList），不观察子树，流式输出改文字时不会触发。
-import { active, play, state, scoped, areaFactor } from '../core/engine.js';
+import { active, play, state, scoped, sized, poseExtras } from '../core/engine.js';
 import { recentPointer } from '../core/origin.js';
 
 // 动效参数按模块读取（开了「分模块设置」时各模块用自己的幅度和速度）
@@ -8,14 +8,18 @@ const { dur, v } = scoped('messages');
 
 const STAGGER_LAST = 4;
 
-function enter(el, delay = 0, k = 1) {
-    const D = dur('--me-in-dur');
-    // 越大的消息上浮越少（设置「强度随面积」），长消息整块飘上来容易晃眼
+/**
+ * 消息进场。位移、缩放、曲线都按消息面积换算（engine.sized），与同样大小的面板强度一致
+ * @param {string} mod 'messages'（新消息）或 'entry'（进入聊天时依次出现）
+ */
+function enter(el, delay = 0, k = 1, mod = 'messages') {
     const r = el.getBoundingClientRect();
-    k *= areaFactor(r.width, Math.min(r.height, innerHeight));
+    const z = sized(mod, r.width, Math.min(r.height, innerHeight));
+    const x = poseExtras(mod, z.af * z.af);
+    const { dur, v } = scoped(mod);
     play(el, 'mes', [
-        [[{ opacity: 0 }, { opacity: 1 }], { duration: D * 0.6, delay, easing: v('--me-fade') }],
-        [[{ translate: `0 calc(${v('--me-y')} * ${1.2 * k} + 6px)`, scale: v('--me-s') }, { translate: '0 0', scale: '1' }], { duration: D, delay, easing: v('--me-in') }],
+        [[{ opacity: 0 }, { opacity: 1 }], { duration: dur('--me-in-dur') * 0.6, delay, easing: v('--me-fade') }],
+        [[{ translate: `0 calc(${z.y} * ${1.2 * k} + ${6 * k}px)`, scale: z.s, ...x.a }, { translate: '0 0', scale: '1', ...x.b }], { duration: z.D, delay, easing: z.ease }],
     ]);
 }
 
@@ -32,12 +36,12 @@ export function installMessages() {
             if (active('messages')) enter(added[0]);
             return;
         }
-        if (!active('details')) return;
+        if (!active('entry')) return;
         // 加载更早的消息是插在前面，不做动画
         if (added[added.length - 1] !== chat.lastElementChild) return;
         const tail = added.slice(-STAGGER_LAST);
-        const step = Math.min(70, dur('--me-stagger') + 20);
-        tail.forEach((el, i) => enter(el, i * step, 0.8));
+        const step = Math.min(70, scoped('entry').dur('--me-stagger') + 20);
+        tail.forEach((el, i) => enter(el, i * step, 0.8, 'entry'));
     }).observe(chat, { childList: true });
 
     // 切换回复：酒馆 1.19 用 CSS 关键帧 slide 做左右滑动。动画开始时把曲线换成当前风格的：

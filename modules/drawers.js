@@ -27,7 +27,7 @@ function measure(el, iconEl) {
     return g;
 }
 
-/** 固定背景换算后的还原函数：动画被打断时留着，由接下来的动画播完后还原 */
+/** 固定背景换算后的还原函数：动画被打断时保留，由后续动画播放完毕后还原 */
 const unfixed = new WeakMap();
 
 function restoreBackground(el) {
@@ -38,7 +38,7 @@ function restoreBackground(el) {
 function start(el, dir, g, t) {
     const go = () => {
         const s = state.settings;
-        // 固定背景：先换成等效的普通背景，换得了就正常动，换不了只淡入淡出
+        // 固定背景：先换成等效的普通背景；能换算时正常播放，不能换算时只做淡入淡出
         if (g.fixedBg && !unfixed.has(el) && !s.lite && !state.reduced) {
             const restore = unfixBackground(el);
             if (restore) unfixed.set(el, restore);
@@ -48,7 +48,7 @@ function start(el, dir, g, t) {
         return begin(el, dir, tracks, origin);
     };
     // 关闭时酒馆切换 class 的那一帧要重算整块面板的样式（手机上几十到几百毫秒）。动画如果同时开始，
-    // 这段时间会被算进动画里，画出来时已经播完大半，面板像是一下子消失。所以先保持原样，等这一帧过去再开始。
+    // 这段时间会计入动画进度，画面第一次更新时动画已接近结束，面板看上去直接消失。因此先保持原样，等这一帧结束再开始。
     if (dir === 'out' && t) {
         return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => {
             resolve(token.get(el) === t ? go() : false);
@@ -59,7 +59,7 @@ function start(el, dir, g, t) {
 
 function begin(el, dir, tracks, origin) {
     // 只有缩放才需要变换原点。改内联样式会让整块面板重算一次样式，用不到就不写
-    const scaled = tracks.some(([kf]) => 'scale' in kf[0]);
+    const scaled = tracks.some(([kf]) => 'scale' in kf[0] || 'rotate' in kf[0]);
     if (scaled) el.style.transformOrigin = origin;
     return play(el, 'drawer', tracks).then(ok => {
         if (!ok) return false;
@@ -80,10 +80,10 @@ function run(el, dir, iconEl = null) {
         el.classList.remove('me-leaving');
         // 只写：透明 + 分好图层。下一帧再量尺寸、开始动画
         el.style.willChange = 'opacity, translate, scale';
-        // 关闭动画还没播完就又打开：不遮住，下一帧从当前画面接着播
-        // 占位要撑得比最慢的第一帧还久：手机上第一次打开大面板可能超过 1 秒，占位先结束的话面板会闪现一下
+        // 关闭动画尚未结束时再次打开：不加占位，下一帧从当前画面继续
+        // 占位动画的时长须长于最慢的第一帧：手机上首次打开大面板可能超过 1 秒，占位先结束会使面板短暂完整显示
         if (!isRunning(el, 'drawer')) el.animate([{ opacity: 0 }, { opacity: 0 }], { duration: 10000, id: 'me-hold' });
-        // rAF 回调在本帧排版之前执行，所以要等两次：第二次时打开那一帧已经画完，尺寸是现成的
+        // rAF 回调在本帧排版之前执行，因此等两次：第二次时打开的那一帧已绘制完成，尺寸已经算好
         return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => {
             // 先量再撤掉占位动画：撤动画会让样式变脏，反过来做的话量尺寸时要先重算一遍样式
             const g = token.get(el) === t ? measure(el, iconEl || iconOf(el)) : null;

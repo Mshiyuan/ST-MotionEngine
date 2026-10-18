@@ -9,7 +9,7 @@ export function installOrigin() {
     }, { capture: true, passive: true });
 }
 
-/** 最近 maxAge 毫秒内的按下位置；太久以前的（比如键盘触发）返回 null */
+/** 最近 maxAge 毫秒内的按下位置；超过时限（例如由键盘触发）返回 null */
 export function recentPointer(maxAge = 800) {
     return performance.now() - last.t < maxAge ? last : null;
 }

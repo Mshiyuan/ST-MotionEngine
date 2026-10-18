@@ -1,8 +1,8 @@
 // 固定背景的临时换算
 // 美化常给面板写 background-attachment: fixed：背景以整个屏幕为参照，而不是以面板为参照。
-// 面板一移动或缩放，浏览器会改为以面板为参照画背景，画面跳一下；动画结束再跳回来。
+// 面板一旦位移或缩放，浏览器改为以面板为参照绘制背景，背景位置突变；动画结束后再突变回原位。
 // 做法：动画开始前，把固定背景换成「以面板为参照、但位置和大小算得和原来完全一样」的普通背景，
-// 静止时看起来没有任何区别，动画期间背景跟着面板一起动；动画结束再换回固定背景。
+// 静止时与原来完全相同，动画期间背景随面板一起移动；动画结束后换回固定背景。
 // 算不出来的情况（图片尺寸未知、面板本身有 transform 等）返回 null，调用方改为只淡入淡出。
 import { imageSize } from './guard.js';
 
@@ -71,7 +71,7 @@ export function unfixBackground(el) {
     if (!att.includes('fixed')) return null;
 
     // 酒馆给 <html> 写了 transform: translateZ(0)（修 Chrome 毛玻璃闪烁）。祖先有 transform 时，
-    // 浏览器已经把固定背景当普通背景画了（实测像素完全一致），直接改成 scroll 就是等效的
+    // 浏览器此时已按普通背景绘制固定背景（实测逐像素一致），改为 scroll 效果等同
     if (cs.transform !== 'none' || ancestorTransformed(el)) {
         const prev = [el.style.getPropertyValue('background-attachment'), el.style.getPropertyPriority('background-attachment')];
         el.style.setProperty('background-attachment', att.map(a => (a === 'fixed' ? 'scroll' : a)).join(', '), 'important');
@@ -115,7 +115,7 @@ export function unfixBackground(el) {
     }
 
     const saved = ['background-attachment', 'background-size', 'background-position'].map(p => [p, el.style.getPropertyValue(p), el.style.getPropertyPriority(p)]);
-    // 用 !important 的行内样式，才能盖过美化里带 !important 的写法
+    // 使用带 !important 的行内样式，优先级高于美化里带 !important 的声明
     el.style.setProperty('background-attachment', newAtt.join(', '), 'important');
     el.style.setProperty('background-size', newSize.join(', '), 'important');
     el.style.setProperty('background-position', newPos.join(', '), 'important');

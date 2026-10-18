@@ -11,7 +11,9 @@
 @supports (appearance: base-select) {
     :root.me-on.me-select select:not([multiple]):not([size]):not(.select2-hidden-accessible),
     :root.me-on.me-select select:not([multiple]):not([size]):not(.select2-hidden-accessible)::picker(select) {
-        appearance: base-select;
+        /* 有的美化写了 select { appearance: none !important }，会把页内列表关掉。
+           这个模块默认关闭，开启就是要页内列表，所以这里用 !important 并提高优先级 */
+        appearance: base-select !important;
     }
 
     /* 按钮部分：保持酒馆原来的样子（酒馆用背景图画箭头，浏览器自带的箭头隐藏） */
@@ -33,9 +35,10 @@
         border: 1px solid var(--SmartThemeBorderColor);
         border-radius: 12px;
         color: var(--SmartThemeBodyColor);
-        /* 主题底色常是半透明的，叠三层让列表足够不透明，看不到后面的文字 */
-        background-color: var(--SmartThemeBlurTintColor);
-        background-image: linear-gradient(var(--SmartThemeBlurTintColor), var(--SmartThemeBlurTintColor)), linear-gradient(var(--SmartThemeBlurTintColor), var(--SmartThemeBlurTintColor));
+        /* 主题底色常是半透明的，叠三层让列表足够不透明，看不到后面的文字。
+           --me-surface 由 core/guard.js 计算：主题的模糊底色与文字颜色对比度不足时改用与文字反差足够的颜色 */
+        background-color: var(--me-surface, var(--SmartThemeBlurTintColor));
+        background-image: linear-gradient(var(--me-surface, var(--SmartThemeBlurTintColor)), var(--me-surface, var(--SmartThemeBlurTintColor))), linear-gradient(var(--me-surface, var(--SmartThemeBlurTintColor)), var(--me-surface, var(--SmartThemeBlurTintColor)));
         backdrop-filter: blur(calc(var(--SmartThemeBlurStrength, 10px) + 8px));
         -webkit-backdrop-filter: blur(calc(var(--SmartThemeBlurStrength, 10px) + 8px));
         box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);

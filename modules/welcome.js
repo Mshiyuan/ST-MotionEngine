@@ -1,6 +1,6 @@
 // 欢迎页：最近的聊天逐条浮现，「显示更多」展开的几条也逐条浮现
 // 欢迎页（.welcomePanel）不是消息，酒馆把它直接插进 #chat，消息模块的进场动画管不到它。
-import { active, play, state, areaFactor, scoped } from '../core/engine.js';
+import { active, play, state, sized, scoped } from '../core/engine.js';
 
 // 动效参数按模块读取（开了「分模块设置」时各模块用自己的幅度和速度）
 const { dur, v } = scoped('welcome');
@@ -10,11 +10,11 @@ function stagger(items, first = 0) {
     const step = Math.max(dur('--me-stagger'), 25);
     items.forEach((el, i) => {
         const r = el.getBoundingClientRect();
-        const m = areaFactor(r.width, r.height);
+        const z = sized('welcome', r.width, r.height);
         const delay = first + i * step;
         play(el, 'welcome', [
             [[{ opacity: 0 }, { opacity: 1 }], { duration: D * 0.6, delay, easing: v('--me-fade') }],
-            [[{ translate: `0 calc((${v('--me-y')} * 1.2 + 6px) * ${m})`, scale: v('--me-s') }, { translate: '0 0', scale: '1' }], { duration: D, delay, easing: v('--me-in') }],
+            [[{ translate: `0 calc(${z.y} * 1.2 + ${6 * z.af}px)`, scale: z.s }, { translate: '0 0', scale: '1' }], { duration: z.D, delay, easing: z.ease }],
         ]);
     });
 }

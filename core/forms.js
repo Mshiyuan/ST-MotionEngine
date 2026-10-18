@@ -13,6 +13,7 @@ export const PANEL_FORMS = [
     { id: 'rise', zh: '浮起 / 下沉', en: 'Rise / sink' },
     { id: 'side', zh: '侧滑', en: 'Slide sideways' },
     { id: 'curtain', zh: '卷帘', en: 'Curtain' },
+    { id: 'unfold', zh: '纵向展开', en: 'Unfold' },
     { id: 'fade', zh: '淡入淡出', en: 'Fade' },
     { id: 'none', zh: '无动画', en: 'None' },
 ];
@@ -32,7 +33,7 @@ const FEEL_FORMS = {
     ink: { in: 'curtain', out: 'curtain', k: 1 },
     breathe: { in: 'breathe', out: 'exhale', k: 1 },
     jelly: { in: 'jelly', out: 'squash', k: 1.2 },
-    glitch: { in: 'glitch', out: 'glitch', k: 1 },
+    swing: { in: 'swing', out: 'fade', k: 1 },
     cinema: { in: 'rise', out: 'sink', k: 1.6 },
     steps: { in: 'drop', out: 'drop', k: 1 },
 };
@@ -75,12 +76,12 @@ export function panelTracks(el, dir, o) {
     const w = rect.width || innerWidth;
     const amp = o.amp ?? 1;
     const sc = (x) => String(+Math.min(3, Math.max(0.05, x)).toFixed(3));
-    // 位移按面板高度算，手机上全屏面板也看得出来；幅度 0–3
+    // 位移按面板高度计算，手机上的全屏面板同样可见；幅度 0–3
     const d = Math.max(8, Math.min(320, h * 0.07 * o.k * amp));
     const inDur = dur('--me-p-in-dur'), outDur = dur('--me-p-out-dur');
     const D = dir === 'in' ? inDur : outDur;
     const ease = dir === 'in' ? v('--me-p-in') : v('--me-p-out');
-    // 退场透明度匀速：前慢后快的曲线会让面板最后几帧才突然消失，掉一帧就像闪了一下
+    // 退场透明度匀速变化：前慢后快的曲线使面板在最后几帧才消失，掉帧时表现为闪烁
     const fadeEase = dir === 'in' ? v('--me-fade') : v('--me-fade-out');
     // 形变倍数（回弹、压扁、缩放）：「统一」时与小部件一样（2.2），「越大越弱」时按面积减弱，
     // 整屏面板约为 1，半屏的面板更明显。基础位移 d 已经按面板高度算，不再随面积减弱
@@ -95,8 +96,8 @@ export function panelTracks(el, dir, o) {
     const T = []; // [keyframes, options]
     const fade = (from = 0) => T.push([dir === 'in' ? [{ opacity: from }, { opacity: 1 }] : [{ opacity: 1 }, { opacity: from }], { duration: fadeDur, easing: fadeEase }]);
     const move = (pose, opt = {}) => {
-        // 只写用到的属性：固定背景的面板哪怕带一个 translate: 0 0，背景也会改成跟着元素走
-        const rest = { translate: '0 0', scale: '1', clipPath: 'inset(0 0 0 0)', filter: 'blur(0px)' };
+        // 只写用到的属性：固定背景的面板即使只带 translate: 0 0，背景也会改为随元素移动
+        const rest = { translate: '0 0', scale: '1', rotate: '0deg', clipPath: 'inset(0 0 0 0)', filter: 'blur(0px)' };
         const b = { ...pose }, a = {};
         for (const key of Object.keys(b)) a[key] = rest[key];
         T.push([dir === 'in' ? [b, a] : [a, b], { duration: D, easing: ease, ...opt }]);
@@ -105,8 +106,8 @@ export function panelTracks(el, dir, o) {
     let form = o.form;
     // 简化模式：只淡入淡出
     if (o.lite || state.reduced) form = 'fade-lite';
-    // 固定背景（background-attachment: fixed）：元素一移动或缩放，背景就跟着走，结束时再跳回。
-    // 以前改用裁剪（clip-path），但裁剪动画在主线程执行，切换面板时的长帧会把它吃掉，旧面板一下子消失，看上去在闪。
+    // 固定背景（background-attachment: fixed）：元素位移或缩放时背景随之移动，结束时回到原位。
+    // 曾改用裁剪（clip-path），但裁剪动画在主线程执行，切换面板时的长帧会占用其播放时间，旧面板随即消失，表现为闪烁。
     // 现在只做透明度：在合成线程执行，主线程再忙也照常播放。
     if (o.fixedBg && form !== 'fade-lite') form = 'fade-only';
 
@@ -128,7 +129,7 @@ export function panelTracks(el, dir, o) {
         case 'sink':
             fade(); move({ translate: `0 ${d}px` });
             break;
-        case 'float': // 慢慢往上飘走
+        case 'float': // 缓慢向上移出
             T.push([[{ opacity: 1 }, { opacity: 0 }], { duration: D * 1.6, easing: 'cubic-bezier(0.33, 0, 0.67, 1)' }]);
             T.push([[{ translate: '0 0' }, { translate: `0 ${-d * 1.6}px` }], { duration: D * 1.6, easing: 'cubic-bezier(0.33, 0, 0.67, 1)' }]);
             break;
@@ -169,12 +170,14 @@ export function panelTracks(el, dir, o) {
         case 'exhale': // 呼出：轻轻放大并淡去
             fade(); move({ scale: sc(1 + 0.03 * amp * big) });
             break;
-        case 'glitch': { // 横向抖几下，透明度闪烁，最后定住
-            const j = Math.max(4, d * 0.35);
-            const xs = dir === 'in' ? [-j, j * 0.6, -j * 0.3, j * 0.15, 0] : [0, j * 0.3, -j * 0.6, j, -j];
-            const ops = dir === 'in' ? [0, 1, 0.35, 1, 0.75, 1] : [1, 0.6, 1, 0.3, 0.6, 0];
-            T.push([ops.map((o, i) => ({ opacity: o, offset: i / (ops.length - 1) })), { duration: D, easing: 'linear' }]);
-            T.push([xs.map((x, i) => ({ translate: `${x}px 0`, offset: i / (xs.length - 1) })), { duration: D, easing: 'linear' }]);
+        case 'unfold': // 纵向展开：从顶边沿竖直方向展开，收起时反向折回
+            origin = '50% 0';
+            fade(); move({ scale: `1 ${sc(1 - 0.75 * Math.min(amp, 1.3))}` });
+            break;
+        case 'swing': { // 摆动：以顶边中点为支点，按面积减小摆角（整屏面板约 1.5°）
+            origin = '50% 0';
+            const deg = (state.feel?.rot || -8) * Math.min(amp, 3) * (big / 2.2) ** 2;
+            fade(); move({ rotate: `${deg.toFixed(2)}deg`, translate: `0 ${-d * 0.4}px` });
             break;
         }
         case 'curtain': // 卷帘：裁剪在主线程执行，调用方会等长帧过去再开始（见 drawers.js）
