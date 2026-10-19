@@ -95,7 +95,7 @@ const DICT = {
     bounce_uniform: ['统一', 'Uniform'],
     tuneNote: ['速度数值越大越快。幅度控制位移和缩放的大小（0–3）。「越大越弱」：按钮等小部件效果完整，面板、长消息等大块按面积减弱；「统一」：所有部件按小部件的强度播放。', 'Higher speed is faster. Amplitude scales movement and zoom (0–3). "Larger is softer": small parts such as buttons get the full effect, large blocks such as panels and long messages are softened by area; "Uniform": everything gets the full effect.'],
     perModule: ['分模块设置', 'Per-module tuning'],
-    perModule_d: ['在「作用范围」中为每一项单独设置幅度（0–5）和速度。开启后，整体的幅度、速度和「强度随面积」不再生效。', 'Set amplitude (0–5) and speed for each item under "Applies to". The overall values and "Strength by size" no longer apply.'],
+    perModule_d: ['在「作用范围」中为每一项单独设置幅度（0–5）和速度。分类收起时可整类设置。开启后，整体的幅度和速度不再生效，「强度随面积」仍然生效。', 'Set amplitude (0–5) and speed for each item under "Applies to"; a collapsed category can be set as a whole. The overall amplitude and speed no longer apply; "Strength by size" still does.'],
     prof_default: ['默认', 'Default'],
     prof_save: ['保存当前', 'Save current'],
     prof_savePrompt: ['配置名称', 'Config name'],

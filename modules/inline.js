@@ -29,14 +29,17 @@ function spinIcon(el) {
 
 function expand(el, opt) {
     intent.set(el, 'open');
-    el.style.display = '';
-    if (getComputedStyle(el).display === 'none') el.style.display = 'block';
+    // 调用方已让元素显示并量好高度（opt.h）时，不再读排版
+    if (opt.h === undefined) {
+        el.style.display = '';
+        if (getComputedStyle(el).display === 'none') el.style.display = 'block';
+    }
     const t0 = performance.now();
-    const h = el.getBoundingClientRect().height;
+    const h = opt.h ?? el.getBoundingClientRect().height;
     const cs = getComputedStyle(el);
     const isHeavy = !opt.light && (performance.now() - t0 > HEAVY_LAYOUT_MS || h > TALL_PX);
     heavy.set(el, isHeavy);
-    const pt = cs.paddingTop, pb = cs.paddingBottom;
+    const pt = opt.pt ?? cs.paddingTop, pb = opt.pb ?? cs.paddingBottom;
     const D = dur('--me-p-in-dur');
     const tracks = [
         [[{ opacity: 0 }, { opacity: 1 }], { duration: D * 0.6, easing: v('--me-fade') }],
@@ -52,8 +55,9 @@ function expand(el, opt) {
         tracks.push([[{ height: '0px', paddingTop: '0px', paddingBottom: '0px' }, { height: `${h}px`, paddingTop: pt, paddingBottom: pb }], { duration: D, easing: 'cubic-bezier(0.2, 0, 0, 1)' }]);
     }
     spinIcon(el);
-    // 内容多时，显示新内容的那一帧排版耗时较长；等这一帧绘制完成再开始，排版时间不会计入动画进度
-    play(el, 'slide', tracks, { defer: isHeavy }).then(ok => {
+    // 内容多时，显示新内容的那一帧排版耗时较长；等这一帧绘制完成再开始，排版时间不会计入动画进度。
+    // 设置面板自己的展开（light）也这样：内容多的分类第一帧很慢，否则画出来时动画已经播完
+    play(el, 'slide', tracks, { defer: isHeavy || !!opt.light, own: opt.light }).then(ok => {
         if (!ok) return;
         el.style.overflow = '';
         opt.complete?.call(el);
@@ -69,12 +73,13 @@ function collapse(el, opt) {
     if (isHeavy) tracks.push([[{ translate: '0 0' }, { translate: '0 -8px' }], { duration: D * 0.7, easing: v('--me-p-out') }]);
     if (!simple() && !isHeavy) {
         const cs = getComputedStyle(el);
-        const h = el.getBoundingClientRect().height;
+        // 调用方可以在改动页面之前先量好高度和内边距（opt.h / pt / pb），省去强制排版
+        const h = opt.h ?? el.getBoundingClientRect().height;
         el.style.overflow = 'hidden';
-        tracks.push([[{ height: `${h}px`, paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom }, { height: '0px', paddingTop: '0px', paddingBottom: '0px' }], { duration: D, easing: 'cubic-bezier(0.4, 0, 1, 1)' }]);
+        tracks.push([[{ height: `${h}px`, paddingTop: opt.pt ?? cs.paddingTop, paddingBottom: opt.pb ?? cs.paddingBottom }, { height: '0px', paddingTop: '0px', paddingBottom: '0px' }], { duration: D, easing: 'cubic-bezier(0.4, 0, 1, 1)' }]);
     }
     spinIcon(el);
-    play(el, 'slide', tracks).then(ok => {
+    play(el, 'slide', tracks, { own: opt.light }).then(ok => {
         if (!ok) return;
         el.style.display = 'none';
         el.style.overflow = '';
@@ -88,8 +93,8 @@ function collapse(el, opt) {
  * 收起结束后元素为 display: none。light=true 时总是做高度过渡（内容少、不在长页面里时用）
  * @returns {Promise<void>}
  */
-export function toggleBlock(el, open, { light = false } = {}) {
-    return new Promise(resolve => (open ? expand : collapse)(el, { complete: resolve, light }));
+export function toggleBlock(el, open, { light = false, h, pt, pb } = {}) {
+    return new Promise(resolve => (open ? expand : collapse)(el, { complete: resolve, light, h, pt, pb }));
 }
 
 export function installInline() {

@@ -10,6 +10,11 @@ const { dur, v } = scoped('toasts');
 /** 提示条在屏幕上方还是下方 */
 const fromTop = (el) => !el.closest('[class*="toast-bottom"]');
 
+/** 正在退场的提示条。toastr 在指针移入时（触屏点按也会触发）会再调一次显示方法：
+ *  已经显示的不重播进场，否则提示条会移开，点按落空、不会消失；只有退场途中才接回显示状态 */
+const leaving = new WeakSet();
+const shown = new WeakSet();
+
 export function installToasts() {
     const $ = window.jQuery;
     const toastr = window.toastr;
@@ -19,6 +24,17 @@ export function installToasts() {
         if (!active('toasts')) return this.fadeIn(opt);
         return this.each(function () {
             this.style.display = '';
+            if (shown.has(this) && !leaving.has(this)) { opt.complete?.call(this); return; }
+            if (leaving.has(this)) {
+                // 退场途中被留住：同组动画从当前帧接回原位
+                leaving.delete(this);
+                play(this, 'toast', [
+                    [[{ opacity: 0 }, { opacity: 1 }], { duration: dur('--me-in-dur') * 0.6, easing: v('--me-fade') }],
+                    [[{ translate: '0 0', scale: '1' }, { translate: '0 0', scale: '1' }], { duration: dur('--me-in-dur'), easing: v('--me-in') }],
+                ]).then(ok => ok && opt.complete?.call(this));
+                return;
+            }
+            shown.add(this);
             const dy = (fromTop(this) ? -1 : 1) * (16 + parseFloat(v('--me-y')));
             const D = dur('--me-in-dur');
             const x = poseExtras('toasts');
@@ -33,6 +49,7 @@ export function installToasts() {
         if (!active('toasts')) return this.fadeOut(opt);
         return this.each(function () {
             const el = this;
+            leaving.add(el);
             const dy = (fromTop(el) ? -1 : 1) * 10;
             const D = dur('--me-out-dur');
             play(el, 'toast', [

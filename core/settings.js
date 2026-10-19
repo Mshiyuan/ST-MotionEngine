@@ -41,6 +41,8 @@ export const DEFAULTS = Object.freeze({
     /** 用户自建的风格标签：[{ id, name }]；tagMap: { 风格 id: [标签 id] } */
     tags: Object.freeze([]),
     tagMap: Object.freeze({}),
+    /** 作用范围里收起的分类 id */
+    scopeFold: Object.freeze([]),
     /** 在魔棒菜单显示快捷入口 */
     wandEntry: false,
     modules: Object.freeze(Object.fromEntries(MODULES.map(m => [m, !OFF_BY_DEFAULT.includes(m)]))),
@@ -69,10 +71,14 @@ export function loadSettings() {
         tuneProfiles: Array.isArray(saved.tuneProfiles) ? saved.tuneProfiles.filter(p => p && p.id).map(p => ({ id: String(p.id), name: String(p.name || '配置').slice(0, 16), tune: cleanTune(p.tune) })) : [],
         tags: Array.isArray(saved.tags) ? saved.tags.filter(t => t && t.id).map(t => ({ id: String(t.id), name: String(t.name || '').slice(0, 12) })) : [],
         tagMap: saved.tagMap && typeof saved.tagMap === 'object' ? { ...saved.tagMap } : {},
+        scopeFold: Array.isArray(saved.scopeFold) ? saved.scopeFold.filter(id => SCOPE_GROUPS.some(g => g.id === id)) : [],
     };
     s.tune = cleanTune(s.tune);
     // 旧版本设置迁移（幅度范围历次放宽 0–1.5 → 0–2 → 0–3，数值含义不变）
     if (!s.panelSplit && s.panelOut !== s.panelIn) s.panelSplit = true;
+    // 面板开合去掉了「淡入淡出」，已选的改回「跟随风格」
+    if (s.panelIn === 'fade') s.panelIn = 'feel';
+    if (s.panelOut === 'fade') s.panelOut = 'feel';
     if (s.panelBounce === 'soft') s.panelBounce = 'area';
     if (s.panelBounce === 'full') s.panelBounce = 'uniform';
     if ('customSelect' in s) {
@@ -134,8 +140,8 @@ export function apply() {
     state.on = !!s.enabled;
     state.reduced = shouldReduce(s, ctx().powerUserSettings);
     state.feel = currentFeel(s);
-    // 「统一」或分模块设置时，大面板和小部件用同样的曲线和形变
-    const bigBounce = s.panelBounce === 'uniform' || !!s.perModule;
+    // 「统一」时，大面板和小部件用同样的曲线和形变（分模块设置时「越大越弱」同样生效）
+    const bigBounce = s.panelBounce === 'uniform';
     state.vars = feelVars(state.feel, { speed: s.speed, amp: s.amp, reduced: state.reduced, bigBounce });
     state.varsBy = {};
     if (s.perModule) {

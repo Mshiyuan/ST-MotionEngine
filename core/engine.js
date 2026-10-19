@@ -51,11 +51,11 @@ export function speedOf(mod) {
 /**
  * 强度随面积变化：面积越小效果越强，越大越弱。
  * 面积不到屏幕 2%（按钮一类）为 1，超过 60%（整屏面板）为 0.45，中间按对数过渡。
- * 设置为「统一」或开启分模块设置时一律为 1。
+ * 设置为「统一」时一律为 1（分模块设置时同样生效，与各模块的幅度叠加）。
  */
 export function areaFactor(w, h) {
     const s = state.settings;
-    if (!s || s.panelBounce === 'uniform' || s.perModule) return 1;
+    if (!s || s.panelBounce === 'uniform') return 1;
     const a = Math.min(1, (w * h) / Math.max(1, innerWidth * innerHeight));
     if (a <= 0.02) return 1;
     if (a >= 0.6) return 0.45;
@@ -117,13 +117,14 @@ const running = new WeakMap();
  * @param {Element} el
  * @param {string} group 组名。同一组的动画被打断时，新动画从当前画面继续，例如面板的打开打断关闭
  * @param {Array<[Keyframe[], KeyframeAnimationOptions]>} tracks 每条轨道可以有不同的曲线和时长
- * @param {{ keep?: boolean, defer?: boolean }} [opt]
+ * @param {{ keep?: boolean, defer?: boolean, own?: boolean }} [opt]
  *   keep=true：播完停在最后一帧（按住不放时用），直到下一次 play 或 stop
  *   defer=true：先停在第一帧，等下一帧画出来再开始。用于打开大面板：打开那一帧的排版常要几百毫秒，
  *               动画如果同时开始，这段时间会计入动画进度，画面第一次出现时动画已接近结束
+ *   own=true：插件自己的界面（设置面板），主题不会锁它的透明度，跳过检查（检查要读计算样式，连续播放多个时很慢）
  * @returns {Promise<boolean>} 正常播完为 true，被打断为 false
  */
-export function play(el, group, tracks, { keep = false, defer = false } = {}) {
+export function play(el, group, tracks, { keep = false, defer = false, own = false } = {}) {
     let map = running.get(el);
     if (!map) { map = new Map(); running.set(el, map); }
     if (map.has(group)) {
@@ -151,7 +152,7 @@ export function play(el, group, tracks, { keep = false, defer = false } = {}) {
             console.debug('[MotionEngine] animate failed', e);
         }
     }
-    fixLockedOpacity(el, tracks, anims);
+    if (!own) fixLockedOpacity(el, tracks, anims);
     map.set(group, anims);
     if (!anims.length) return Promise.resolve(true);
     if (defer) {

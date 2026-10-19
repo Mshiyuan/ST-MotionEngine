@@ -133,7 +133,8 @@ const sw = (key, label, note, attr = 'data-key') => `
     <button type="button" class="me-switch" role="switch" ${attr}="${key}" aria-label="${esc(label)}"></button>
   </div>`;
 
-const chips = (key, forms = PANEL_FORMS) => `<div class="me-chips" data-form="${key}">${forms.map(f => `<button type="button" class="me-chip" data-v="${f.id}">${name(f)}</button>`).join('')}</div>`;
+// 「淡入淡出」不作为面板开合的选项（风格内部和自定义风格仍可用）
+const chips = (key, forms = PANEL_FORMS.filter(f => f.id !== 'fade')) => `<div class="me-chips" data-form="${key}">${forms.map(f => `<button type="button" class="me-chip" data-v="${f.id}">${name(f)}</button>`).join('')}</div>`;
 
 const range = (key, label, min, max, step, attr = 'data-range') => `
   <div class="me-row me-range"><span>${label}</span><input type="range" min="${min}" max="${max}" step="${step}" ${attr}="${key}"><output></output></div>`;
@@ -232,13 +233,13 @@ function htmlFull() {
             <div class="me-global">
               ${range('speed', t('speed'), 0.5, 2, 0.1)}
               ${range('amp', t('amp'), 0, 3, 0.1)}
-              <div class="me-row">
-                <div class="me-lbl"><span>${t('panelBounce')}</span></div>
-                <div class="me-seg-sm" role="radiogroup" data-choice="panelBounce" style="--n:2">
-                  <span class="me-ind"></span>
-                  <button type="button" role="radio" data-v="area">${t('bounce_area')}</button>
-                  <button type="button" role="radio" data-v="uniform">${t('bounce_uniform')}</button>
-                </div>
+            </div>
+            <div class="me-row">
+              <div class="me-lbl"><span>${t('panelBounce')}</span></div>
+              <div class="me-seg-sm" role="radiogroup" data-choice="panelBounce" style="--n:2">
+                <span class="me-ind"></span>
+                <button type="button" role="radio" data-v="area">${t('bounce_area')}</button>
+                <button type="button" role="radio" data-v="uniform">${t('bounce_uniform')}</button>
               </div>
             </div>
             ${sw('perModule', t('perModule'), t('perModule_d'))}
@@ -258,11 +259,18 @@ function htmlFull() {
         ${fold('scope', t('secScope'), SCOPE_GROUPS.map(g => `
           <div class="me-sg" data-sg="${g.id}">
             <div class="me-sg-head">
-              <span class="me-sg-title">${t('sg_' + g.id)}</span>
+              <button type="button" class="me-sg-fold" data-sgfold="${g.id}" aria-expanded="true">
+                <span class="me-sg-title">${t('sg_' + g.id)}</span>
+                <i class="fa-solid fa-chevron-down me-sg-icon"></i>
+              </button>
               <span class="me-sg-count"></span>
               <button type="button" class="me-switch me-switch-sm" role="switch" data-sg-all="${g.id}" aria-label="${t('sg_' + g.id)}"></button>
             </div>
-            ${g.mods.map(modRow).join('')}
+            <div class="me-sg-tune">
+              ${range(g.id, t('amp'), 0, 5, 0.1, 'data-sg-amp')}
+              ${range(g.id, t('speed'), 0.5, 2, 0.1, 'data-sg-speed')}
+            </div>
+            <div class="me-sg-body">${g.mods.map(modRow).join('')}</div>
           </div>`).join(''))}
         ${fold('compat', t('secCompat'), COMPAT.map(k => sw(k, t(k), t(k + '_d'))).join(''))}
         <div class="me-card"><div class="me-row me-action"><button type="button" class="me-reset">${t('reset')}</button></div></div>
@@ -334,6 +342,87 @@ export function createUI({ compact = false } = {}) {
         els.forEach((c, i) => c.animate(
             [{ opacity: 0, translate: `0 calc(${v('--me-y')} * 0.4 + 4px)`, scale: v('--me-s'), ...x.a }, { opacity: 1, translate: '0 0', scale: '1', ...x.b }],
             { duration: D || 1, delay: base + Math.min(i, 10) * step, easing: v('--me-in'), fill: 'backwards' }));
+    }
+
+    /**
+     * 显示与否由 class 决定的若干块，从旧状态用折叠动画过渡到新状态。
+     * list: [[元素, 改动后是否显示]]。先量好全部高度、再改、再统一量一次，
+     * 扩展面板很长，每多读一次排版就多一次整页重排。
+     */
+    function morph(list, mutate) {
+        const box = (el) => { const cs = getComputedStyle(el); const r = el.getBoundingClientRect(); return { h: r.height, top: r.top, pt: cs.paddingTop, pb: cs.paddingBottom }; };
+        // 读 innerHeight 也会强制排版，只在页面未改动时读一次
+        const vh = innerHeight;
+        const before = list.map(([el]) => box(el));
+        mutate();
+        const opening = [], closing = [];
+        list.forEach(([el, open], i) => {
+            if ((before[i].h > 0) !== open) (open ? opening : closing).push([el, before[i]]);
+        });
+        for (const [el] of [...closing, ...opening]) el.style.display = 'block';
+        const after = opening.map(([el]) => box(el));
+        // 整块在屏幕下方的看不见，直接切换，不占每帧的计算
+        const below = (m) => m.top > vh;
+        closing.forEach(([el, m]) => {
+            if (below(m)) { el.style.display = ''; return; }
+            toggleBlock(el, false, { light: true, h: m.h, pt: m.pt, pb: m.pb }).then(() => { el.style.display = ''; });
+        });
+        opening.forEach(([el], i) => {
+            const m = after[i];
+            if (below(m)) { el.style.display = ''; return; }
+            toggleBlock(el, true, { light: true, h: m.h, pt: m.pt, pb: m.pb }).then(() => { el.style.display = ''; });
+        });
+    }
+
+    /** 分类收起时显示整类的幅度、速度（仅分模块设置开启、且这一类有开着的项） */
+    const sgTuned = (g, s = state.settings) => !!s.perModule && s.scopeFold.includes(g.id) && g.mods.some(m => s.modules[m]);
+
+    /** 收起 / 展开作用范围里的一个分类 */
+    function foldGroup(id, open) {
+        const s = state.settings;
+        const g = SCOPE_GROUPS.find(x => x.id === id);
+        const box = $(`[data-sg="${id}"]`);
+        const folded = s.scopeFold.includes(id);
+        if (folded === !open) return;
+        const next = { ...s, scopeFold: open ? s.scopeFold.filter(x => x !== id) : [...s.scopeFold, id] };
+        spinChevron(box.querySelector('.me-sg-icon'));
+        morph([[box.querySelector('.me-sg-body'), open], [box.querySelector('.me-sg-tune'), sgTuned(g, next)]], () => {
+            s.scopeFold = next.scopeFold;
+            syncGroups();
+            save();
+        });
+    }
+
+    function spinChevron(icon) {
+        if (!icon) return;
+        const { dur, v } = ui();
+        // 调用时尚未改 class：收起着的转回 0°，展开着的转到 -90°
+        const folded = !!icon.closest('.me-sg-folded');
+        icon.animate([{ rotate: folded ? '-90deg' : '0deg' }, { rotate: folded ? '0deg' : '-90deg' }], { duration: dur('--me-in-dur') || 1, easing: v('--me-p-in') });
+    }
+
+    /** 分类的 class、计数、开关、整类滑块的值 */
+    function syncGroups() {
+        const s = state.settings;
+        for (const g of SCOPE_GROUPS) {
+            const box = $(`[data-sg="${g.id}"]`);
+            if (!box) continue;
+            const on = g.mods.filter(m => s.modules[m]).length;
+            const folded = s.scopeFold.includes(g.id);
+            box.classList.toggle('me-sg-folded', folded);
+            box.classList.toggle('me-sg-tuned', sgTuned(g));
+            box.querySelector('.me-sg-fold').setAttribute('aria-expanded', String(!folded));
+            box.querySelector('.me-sg-count').textContent = `${on}/${g.mods.length}`;
+            $(`[data-sg-all="${g.id}"]`).setAttribute('aria-checked', String(on === g.mods.length));
+            // 整类的值：各项相同时显示该值，不同时显示平均值；拖动后整类改成同一个值
+            for (const k of ['amp', 'speed']) {
+                const el = box.querySelector(`[data-sg-${k}]`);
+                const vals = g.mods.map(m => tuneOf(s, m)[k]);
+                const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+                el.value = avg;
+                setOutput(el, vals.every(x => x === vals[0]) ? `${avg.toFixed(1)}×` : `≈${avg.toFixed(1)}×`);
+            }
+        }
     }
 
     // ---------- 分组条（内置分组 + 自定义 + 用户标签 + 新建标签） ----------
@@ -771,11 +860,7 @@ export function createUI({ compact = false } = {}) {
             const count = (sec, on, all) => { $(`[data-sec="${sec}"] .me-fold-count`).textContent = t('countOn', { n: on, m: all }); };
             count('scope', MODULES.filter(m => s.modules[m]).length, MODULES.length);
             count('compat', COMPAT.filter(k => s[k]).length, COMPAT.length);
-            for (const g of SCOPE_GROUPS) {
-                const on = g.mods.filter(m => s.modules[m]).length;
-                $(`[data-sg="${g.id}"] .me-sg-count`).textContent = `${on}/${g.mods.length}`;
-                $(`[data-sg-all="${g.id}"]`).setAttribute('aria-checked', String(on === g.mods.length));
-            }
+            syncGroups();
             const selectNote = $('[data-mod="select"]')?.closest('.me-row')?.querySelector('small');
             if (selectNote && !CSS.supports('appearance', 'base-select')) selectNote.textContent = t('m_selectNA');
         }
@@ -932,20 +1017,18 @@ export function createUI({ compact = false } = {}) {
         const s = state.settings;
         s.perModule = !s.perModule;
         if (s.perModule && s.tuneProfile === 'default' && Object.keys(s.tune).length) s.tuneProfile = '';
-        const global = $('.me-global');
-        const profiles = $('.me-profiles');
-        // 先用内联样式保持原来的显示状态，再切换 class，最后交给折叠动画过渡到新状态
-        global.style.display = s.perModule ? 'block' : 'none';
-        profiles.style.display = s.perModule ? 'none' : 'block';
-        apply();
-        save();
-        toggleBlock(global, !s.perModule, { light: true }).then(() => { global.style.display = ''; });
-        toggleBlock(profiles, s.perModule, { light: true }).then(() => { profiles.style.display = ''; });
+        const on = s.perModule;
         const scope = $('[data-sec="scope"]');
-        if (s.perModule) {
-            if (!scope.classList.contains('me-open')) toggleFold(scope, true);
-            else staggerIn($$('.me-mod-tune'));
+        const scopeOpen = scope.classList.contains('me-open');
+        // 整体的值、配置、各分类的整类滑块、（作用范围展开时）展开着的分类里各项的滑块，一起过渡
+        const list = [[$('.me-global'), !on], [$('.me-profiles'), on]];
+        for (const g of SCOPE_GROUPS) {
+            const box = $(`[data-sg="${g.id}"]`);
+            list.push([box.querySelector('.me-sg-tune'), sgTuned(g)]);
+            if (scopeOpen && !s.scopeFold.includes(g.id)) box.querySelectorAll('.me-mod-tune').forEach(el => list.push([el, on]));
         }
+        morph(list, () => { apply(); save(); });
+        if (on && !scopeOpen) toggleFold(scope, true);
     }
 
     // ---------- 事件 ----------
@@ -971,8 +1054,16 @@ export function createUI({ compact = false } = {}) {
                 if (el.dataset.sgAll) {
                     const g = SCOPE_GROUPS.find(x => x.id === el.dataset.sgAll);
                     const allOn = g.mods.every(m => s.modules[m]);
-                    for (const m of g.mods) s.modules[m] = !allOn;
-                    apply(); save();
+                    // 整类关闭时收起，打开时展开
+                    const box = $(`[data-sg="${g.id}"]`);
+                    const fold = allOn ? [...new Set([...s.scopeFold, g.id])] : s.scopeFold.filter(x => x !== g.id);
+                    if (fold.includes(g.id) !== s.scopeFold.includes(g.id)) spinChevron(box.querySelector('.me-sg-icon'));
+                    const next = { ...s, scopeFold: fold, modules: Object.fromEntries(g.mods.map(m => [m, !allOn])) };
+                    morph([[box.querySelector('.me-sg-body'), !fold.includes(g.id)], [box.querySelector('.me-sg-tune'), sgTuned(g, next)]], () => {
+                        for (const m of g.mods) s.modules[m] = !allOn;
+                        s.scopeFold = fold;
+                        apply(); save();
+                    });
                     return;
                 }
                 if (el.dataset.key === 'panelSplit') {
@@ -992,6 +1083,7 @@ export function createUI({ compact = false } = {}) {
                 return;
             }
             if (el.classList.contains('me-fold-head')) { toggleFold(el.closest('.me-fold')); return; }
+            if (el.dataset.sgfold) { foldGroup(el.dataset.sgfold, s.scopeFold.includes(el.dataset.sgfold)); return; }
             if (el.dataset.group) {
                 if (el.dataset.group !== shownGroup) { sheetFor = null; renderFeels(el.dataset.group, true); }
                 return;
@@ -1098,9 +1190,12 @@ export function createUI({ compact = false } = {}) {
             const el = /** @type {HTMLInputElement} */ (e.target);
             const s = state.settings;
             if (el.dataset.range) { s[el.dataset.range] = Number(el.value); apply(); save(); return; }
-            if (el.dataset.tuneAmp || el.dataset.tuneSpeed) {
-                const m = el.dataset.tuneAmp || el.dataset.tuneSpeed;
-                s.tune[m] = { ...tuneOf(s, m), [el.dataset.tuneAmp ? 'amp' : 'speed']: Number(el.value) };
+            if (el.dataset.tuneAmp || el.dataset.tuneSpeed || el.dataset.sgAmp || el.dataset.sgSpeed) {
+                const k = el.dataset.tuneAmp || el.dataset.sgAmp ? 'amp' : 'speed';
+                // 整类滑块：这一类的每一项改成同一个值
+                const sg = el.dataset.sgAmp || el.dataset.sgSpeed;
+                const mods = sg ? SCOPE_GROUPS.find(x => x.id === sg).mods : [el.dataset.tuneAmp || el.dataset.tuneSpeed];
+                for (const m of mods) s.tune[m] = { ...tuneOf(s, m), [k]: Number(el.value) };
                 // 选中的是已保存的配置时，改动直接存进这个配置；否则标为未保存
                 const p = s.tuneProfiles.find(x => x.id === s.tuneProfile);
                 if (p) p.tune = structuredClone(s.tune); else s.tuneProfile = '';
@@ -1112,7 +1207,7 @@ export function createUI({ compact = false } = {}) {
         });
         wrap.addEventListener('change', (e) => {
             const el = /** @type {HTMLElement} */ (e.target);
-            if (el.dataset.range || el.dataset.c || el.dataset.tuneAmp || el.dataset.tuneSpeed) demo(true);
+            if (el.dataset.range || el.dataset.c || el.dataset.tuneAmp || el.dataset.tuneSpeed || el.dataset.sgAmp || el.dataset.sgSpeed) demo(true);
         });
         if (!compact) bindDrag();
         // 分组条宽度变化（面板展开、旋转屏幕）时重新放指示块
