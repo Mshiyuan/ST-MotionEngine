@@ -126,6 +126,33 @@
 /* 拖动排序：浮起的卡片在最上层，带阴影；拖动期间其他卡片不响应悬停 */
 :is(#me-settings, #me-quick) .me-feel.me-lift { z-index: 5; scale: 1.04; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3); transition: scale 160ms ease-out, box-shadow 160ms ease-out; }
 :is(#me-settings, #me-quick).me-dragging .me-feels { touch-action: none; }
+/* 名称为空的自定义风格 */
+:is(#me-settings, #me-quick) .me-feel-name.me-unnamed { font-weight: 500; opacity: 0.45; }
+
+/* 整理：卡片右上角出现勾选标记，点卡片是勾选；底部是数量和批量操作 */
+:is(#me-settings, #me-quick) .me-orgbar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+:is(#me-settings, #me-quick) .me-org-hint { display: none; flex: 1; font-size: 0.76em; line-height: 1.4; opacity: 0.6; }
+:is(#me-settings, #me-quick).me-organizing .me-org-hint { display: block; }
+:is(#me-settings, #me-quick) .me-orgacts { display: none; align-items: center; gap: 8px; flex-wrap: wrap; }
+:is(#me-settings, #me-quick).me-organizing .me-orgacts { display: flex; }
+:is(#me-settings, #me-quick) .me-org-count { flex: 1; font-size: 0.85em; opacity: 0.75; font-variant-numeric: tabular-nums; }
+:is(#me-settings, #me-quick) .me-mini:disabled { opacity: 0.4; }
+:is(#me-settings, #me-quick) .me-orgsheet { display: none; }
+:is(#me-settings, #me-quick).me-orgsheet-on .me-orgsheet { display: block; }
+:is(#me-settings, #me-quick) .me-pick {
+    display: none; position: absolute; top: 8px; right: 8px; width: 18px; height: 18px; box-sizing: border-box;
+    align-items: center; justify-content: center; border-radius: 50%; border: 1.5px solid var(--me-line); font-size: 0.6em; color: transparent;
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+:is(#me-settings, #me-quick).me-organizing .me-pick { display: flex; }
+:is(#me-settings, #me-quick).me-organizing .me-check,
+:is(#me-settings, #me-quick).me-organizing .me-feel-tagbtn { display: none; }
+:is(#me-settings, #me-quick).me-organizing .me-feel[aria-pressed="true"] { border-color: transparent; background: var(--me-fill); }
+:is(#me-settings, #me-quick).me-organizing .me-feel.me-picked { border-color: var(--me-accent); background: var(--me-sel); }
+:is(#me-settings, #me-quick).me-organizing .me-feel.me-picked .me-pick { background: var(--me-accent); border-color: var(--me-accent); color: var(--me-on-tint, #fff); }
+:is(#me-settings, #me-quick).me-organizing .me-feel-new { opacity: 0.4; pointer-events: none; }
+:is(#me-settings, #me-quick).me-organizing .me-editor,
+:is(#me-settings, #me-quick).me-organizing .me-sheet { display: none; }
 
 /* 标签设置 */
 :is(#me-settings, #me-quick) .me-sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -257,6 +284,7 @@
 /* 折叠分组：标题行是一张卡片（字号同正文、加粗、计数小胶囊、圆形箭头）；
    内容的展开收起用与酒馆折叠块相同的动画（modules/inline.js），跟随当前风格 */
 :is(#me-settings, #me-quick) .me-fold { gap: 0; }
+:is(#me-settings, #me-quick) .me-fold:not(.me-open) > .me-fold-body { display: none; }
 :is(#me-settings, #me-quick) .me-fold-head {
     display: flex; align-items: center; gap: 10px; width: 100%; margin: 0; min-height: 48px; padding: 8px 10px 8px 14px; box-sizing: border-box;
     border: 1px solid var(--me-line); border-radius: 14px; background: var(--me-fill); text-align: left;

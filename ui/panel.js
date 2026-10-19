@@ -14,9 +14,9 @@ import { CURVES, ORIGINS, RANGES, FORMS_IN, FORMS_OUT, MAX_CUSTOM, buildFeel, cu
 import { systemReduced } from '../core/guard.js';
 import { previewPanel } from '../modules/drawers.js';
 import { iconFx } from '../modules/icons.js';
-import { toggleBlock } from '../modules/inline.js';
+import { morph as morphFx } from './morph.js';
 
-const VERSION = '0.5.0';
+const VERSION = '0.5.1';
 const COMPAT = ['prerender', 'lite', 'override', 'followSystemReduced', 'followPointer', 'haptics'];
 const TABS = ['panel', 'button', 'switch', 'checkbox', 'icon', 'menu', 'toast', 'list'];
 const BASE_GROUPS = [...GROUPS.map(g => g.id), 'custom'];
@@ -146,7 +146,7 @@ const fold = (id, title, body) => `
       <span class="me-fold-count"></span>
       <span class="me-fold-icon"><i class="fa-solid fa-chevron-down"></i></span>
     </button>
-    <div class="me-fold-body" style="display: none"><div class="me-card">${body}</div></div>
+    <div class="me-fold-body"><div class="me-card">${body}</div></div>
   </section>`;
 
 const modRow = (m) => `
@@ -166,8 +166,18 @@ const feelSection = (compact) => `
       <button type="button" class="me-mini" data-tagact="rename">${t('tagRename')}</button>
       <button type="button" class="me-mini" data-tagact="delete">${t('tagDelete')}</button>
     </div>
+    ${compact ? '' : `<div class="me-orgbar">
+      <small class="me-org-hint">${t('orgHint')}</small>
+      <button type="button" class="me-mini" data-org="toggle"><i class="fa-solid fa-list-check"></i> <span>${t('org')}</span></button>
+    </div>`}
     <div class="me-feels"></div>
     <p class="me-foot me-empty" hidden>${t('tagEmpty')}</p>
+    ${compact ? '' : `<div class="me-orgacts">
+      <span class="me-org-count"></span>
+      <button type="button" class="me-mini" data-org="tag"><i class="fa-solid fa-tag"></i> ${t('orgTag')}</button>
+      <button type="button" class="me-mini me-danger" data-org="delete"><i class="fa-regular fa-trash-can"></i> ${t('orgDelete')}</button>
+    </div>
+    <div class="me-orgsheet"></div>`}
     ${compact ? '' : '<div class="me-sheet" hidden></div><div class="me-editor" hidden></div>'}
   </section>`;
 
@@ -319,6 +329,8 @@ export function createUI({ compact = false } = {}) {
     let sheetFor = null;
     let structSig = '';
     let justDragged = false;
+    /** 整理：多选风格，一起加标签或删除。sheet：批量标签的选择区是否展开 */
+    const org = { on: false, sel: new Set(), sheet: false };
 
     // ---------- FLIP：内容变化时，后面的分区从旧位置滑到新位置 ----------
     function flip(mutate, scope = '.me-dim > .me-sec, .me-dim > .me-card, .me-ver, .me-editor, .me-sheet, .me-sec[data-sec="feel"] > .me-foot') {
@@ -334,43 +346,26 @@ export function createUI({ compact = false } = {}) {
     }
 
     /** 一组元素按当前风格依次出现 */
-    function staggerIn(els, base = 0) {
+    // 不逐个延迟：延迟期间内容是空白的。全部同时出现，透明度很快到位，位移按风格曲线
+    function staggerIn(els) {
         const { dur, v } = ui();
-        const D = dur('--me-in-dur');
-        const step = Math.min(60, dur('--me-stagger'));
+        const D = dur('--me-in-dur') || 1;
         const x = poseExtras('inline', 0.6);
-        els.forEach((c, i) => c.animate(
-            [{ opacity: 0, translate: `0 calc(${v('--me-y')} * 0.4 + 4px)`, scale: v('--me-s'), ...x.a }, { opacity: 1, translate: '0 0', scale: '1', ...x.b }],
-            { duration: D || 1, delay: base + Math.min(i, 10) * step, easing: v('--me-in'), fill: 'backwards' }));
+        els.forEach((c) => {
+            c.animate([{ translate: `0 calc(${v('--me-y')} * 0.4 + 4px)`, scale: v('--me-s'), ...x.a }, { translate: '0 0', scale: '1', ...x.b }], { duration: D, easing: v('--me-in') });
+            c.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D * 0.4, easing: v('--me-fade') });
+        });
     }
 
     /**
-     * 显示与否由 class 决定的若干块，从旧状态用折叠动画过渡到新状态。
-     * list: [[元素, 改动后是否显示]]。先量好全部高度、再改、再统一量一次，
-     * 扩展面板很长，每多读一次排版就多一次整页重排。
+     * 显示与否由 class 决定的若干块，从旧状态过渡到新状态（见 ui/morph.js：只排版一次，之后只动位移和裁剪）。
+     * list: [[元素, 改动后是否显示]]
      */
     function morph(list, mutate) {
-        const box = (el) => { const cs = getComputedStyle(el); const r = el.getBoundingClientRect(); return { h: r.height, top: r.top, pt: cs.paddingTop, pb: cs.paddingBottom }; };
-        // 读 innerHeight 也会强制排版，只在页面未改动时读一次
-        const vh = innerHeight;
-        const before = list.map(([el]) => box(el));
-        mutate();
-        const opening = [], closing = [];
-        list.forEach(([el, open], i) => {
-            if ((before[i].h > 0) !== open) (open ? opening : closing).push([el, before[i]]);
-        });
-        for (const [el] of [...closing, ...opening]) el.style.display = 'block';
-        const after = opening.map(([el]) => box(el));
-        // 整块在屏幕下方的看不见，直接切换，不占每帧的计算
-        const below = (m) => m.top > vh;
-        closing.forEach(([el, m]) => {
-            if (below(m)) { el.style.display = ''; return; }
-            toggleBlock(el, false, { light: true, h: m.h, pt: m.pt, pb: m.pb }).then(() => { el.style.display = ''; });
-        });
-        opening.forEach(([el], i) => {
-            const m = after[i];
-            if (below(m)) { el.style.display = ''; return; }
-            toggleBlock(el, true, { light: true, h: m.h, pt: m.pt, pb: m.pb }).then(() => { el.style.display = ''; });
+        const { dur, v } = ui();
+        morphFx(list, mutate, {
+            root: wrap.closest('.drawer-content, dialog, .popup') || document.body, scope: wrap,
+            inDur: dur('--me-p-in-dur'), outDur: dur('--me-p-out-dur'), inEase: v('--me-p-in'), outEase: v('--me-p-out'), fade: v('--me-fade'),
         });
     }
 
@@ -461,13 +456,14 @@ export function createUI({ compact = false } = {}) {
         const s = state.settings;
         const ntag = (s.tagMap[x.id] || []).filter(id => s.tags.some(tg => tg.id === id)).length;
         return `
-          <button type="button" class="me-feel" data-feel="${x.id}"${x.custom ? ' data-custom="1"' : ''}>
-            <span class="me-feel-name">${esc(x.title)}</span>
+          <button type="button" class="me-feel${org.sel.has(x.id) ? ' me-picked' : ''}" data-feel="${x.id}"${x.custom ? ' data-custom="1"' : ''}>
+            <span class="me-feel-name${x.title ? '' : ' me-unnamed'}">${esc(x.title || t('unnamed'))}</span>
             <span class="me-feel-desc">${esc(x.sub)}</span>
             ${curveSvg(x.f.in)}
             <span class="me-feel-meta"><i>${t('sp_' + m.speed)}</i><i>${t('bo_' + m.bounce)}</i></span>
             ${compact ? '' : `<span class="me-feel-tagbtn${ntag ? ' me-has' : ''}" data-tagbtn="${x.id}" role="button" tabindex="0" aria-label="${t('tagBtn')}"><i class="fa-solid fa-tag"></i>${ntag ? `<b>${ntag}</b>` : ''}</span>`}
             <i class="me-check fa-solid fa-check"></i>
+            ${compact ? '' : '<i class="me-pick fa-solid fa-check"></i>'}
           </button>`;
     }
 
@@ -488,8 +484,9 @@ export function createUI({ compact = false } = {}) {
             syncFeels();
             if (!compact) { renderEditor(); renderSheet(); }
         };
+        const moved = shownGroup !== group;
         shownGroup = group;
-        placeInd(animate);
+        if (moved) placeInd(animate);
         if (!animate) { build(); return; }
         flip(build);
         staggerIn([...box.children]);
@@ -525,10 +522,11 @@ export function createUI({ compact = false } = {}) {
         const s = state.settings;
         const id = 't-' + Date.now().toString(36);
         s.tags.push({ id, name: n });
-        if (assignTo) s.tagMap[assignTo] = [...(s.tagMap[assignTo] || []), id];
+        const targets = assignTo === 'org' ? [...org.sel] : assignTo ? [assignTo] : [];
+        for (const x of targets) s.tagMap[x] = [...(s.tagMap[x] || []), id];
         save();
         renderSeg();
-        if (assignTo) { renderFeels(shownGroup, false); } else renderFeels('tag:' + id, true);
+        if (assignTo) { renderFeels(shownGroup, false); syncOrg(); } else renderFeels('tag:' + id, true);
     }
 
     async function tagAction(kind) {
@@ -554,6 +552,63 @@ export function createUI({ compact = false } = {}) {
         renderFeels(currentGroup(), true);
     }
 
+    // ---------- 整理 ----------
+    function syncOrg() {
+        if (compact) return;
+        const s = state.settings;
+        wrap.classList.toggle('me-organizing', org.on);
+        wrap.classList.toggle('me-orgsheet-on', org.on && org.sheet);
+        $('[data-org="toggle"] span').textContent = org.on ? t('orgDone') : t('org');
+        const n = org.sel.size;
+        $('.me-org-count').textContent = t('orgCount', { n });
+        $('[data-org="tag"]').disabled = !n;
+        $('[data-org="delete"]').disabled = ![...org.sel].some(id => s.customFeels.some(c => c.id === id));
+        const ids = [...org.sel];
+        $('.me-orgsheet').innerHTML = `<div class="me-card me-pad"><div class="me-chips">${s.tags.map(tg => `<button type="button" class="me-chip" data-orgtag="${tg.id}" aria-pressed="${ids.length > 0 && ids.every(id => (s.tagMap[id] || []).includes(tg.id))}">${esc(tg.name)}</button>`).join('')}<button type="button" class="me-chip me-chip-add" data-newtag="org"><i class="fa-solid fa-plus"></i> ${t('tagNew')}</button></div></div>`;
+    }
+
+    function toggleOrg() {
+        const on = !org.on;
+        morph([[$('.me-orgacts'), on], [$('.me-org-hint'), on], [$('.me-orgsheet'), false], [$('.me-editor'), !on && !!editing()], [$('.me-sheet'), false]], () => {
+            org.on = on;
+            org.sheet = false;
+            if (!on) { org.sel.clear(); $$('.me-feel.me-picked').forEach(c => c.classList.remove('me-picked')); }
+            sheetFor = null;
+            renderSheet();
+            syncOrg();
+        });
+    }
+
+    /** 给选中的风格加上或去掉一个标签：全部都有时去掉，否则全部加上 */
+    function orgTag(id) {
+        const s = state.settings;
+        const ids = [...org.sel];
+        const all = ids.every(x => (s.tagMap[x] || []).includes(id));
+        for (const x of ids) {
+            const cur = (s.tagMap[x] || []).filter(y => y !== id);
+            if (!all) cur.push(id);
+            if (cur.length) s.tagMap[x] = cur; else delete s.tagMap[x];
+        }
+        save();
+        structSig = signature();
+        if (shownGroup === 'tag:' + id) renderFeels(shownGroup, true);
+        syncOrg();
+    }
+
+    async function orgDelete() {
+        const s = state.settings;
+        const ids = [...org.sel].filter(id => s.customFeels.some(c => c.id === id));
+        if (!ids.length) { toast(t('orgNoCustom'), 'warning'); return; }
+        if (!(await confirmBox(t('orgDeleteAsk', { n: ids.length })))) return;
+        s.customFeels = s.customFeels.filter(c => !ids.includes(c.id));
+        for (const id of ids) { delete s.tagMap[id]; org.sel.delete(id); }
+        if (ids.includes(s.feel)) s.feel = 'smooth';
+        apply(); save();
+        structSig = signature();
+        flip(() => renderFeels(shownGroup, false));
+        syncOrg();
+    }
+
     // ---------- 自定义风格编辑 ----------
     const editing = () => (shownGroup === 'custom' ? state.settings.customFeels.find(c => c.id === state.settings.feel) : null);
     const UNITS = { inDur: 'ms', outDur: 'ms', y: 'px', sx: '×', sy: '×', blur: 'px', press: '×', stagger: 'ms', stiffness: '', damping: '' };
@@ -575,7 +630,7 @@ export function createUI({ compact = false } = {}) {
               <button type="button" class="me-mini" data-cact="export"><i class="fa-solid fa-share-nodes"></i> ${t('c_export')}</button>
               <button type="button" class="me-mini me-danger" data-cact="delete"><i class="fa-regular fa-trash-can"></i> ${t('c_delete')}</button>
             </div>
-            <div class="me-row"><span>${t('c_name')}</span><input type="text" class="text_pole me-c-name" maxlength="16" value="${esc(c.name)}"></div>
+            <div class="me-row"><span>${t('c_name')}</span><input type="text" class="text_pole me-c-name" maxlength="16" value="${esc(c.name)}" placeholder="${t('c_namePh')}"></div>
             <div class="me-pad">
               <div class="me-sub">${t('c_curve')}</div>
               ${pick('curve', CURVES.map(x => ({ id: x.id, label: name(x) })))}
@@ -615,7 +670,11 @@ export function createUI({ compact = false } = {}) {
             const curve = CURVES.find(x => x.id === s.customFeels[i].curve);
             el.querySelector('.me-feel-desc').textContent = curve ? name(curve) : '';
         }
-        if (key === 'name') el.querySelector('.me-feel-name').textContent = s.customFeels[i].name;
+        if (key === 'name') {
+            const n = el.querySelector('.me-feel-name');
+            n.textContent = s.customFeels[i].name || t('unnamed');
+            n.classList.toggle('me-unnamed', !s.customFeels[i].name);
+        }
     }
 
     async function customAction(kind) {
@@ -625,14 +684,14 @@ export function createUI({ compact = false } = {}) {
         if (kind === 'export') { copyText(exportStyle(c)); return; }
         if (kind === 'copy') {
             if (s.customFeels.length >= MAX_CUSTOM) { toast(t('importFull', { n: MAX_CUSTOM }), 'warning'); return; }
-            const dup = sanitizeCustom({ ...c, id: newId(), name: `${c.name} 2`.slice(0, 16) });
+            const dup = sanitizeCustom({ ...c, id: newId(), name: c.name ? `${c.name} 2`.slice(0, 16) : '' });
             s.customFeels.splice(s.customFeels.indexOf(c) + 1, 0, dup);
             s.feel = dup.id;
             apply(); save();
             renderFeels('custom', false);
             return;
         }
-        if (!(await confirmBox(t('c_deleteAsk', { name: c.name })))) return;
+        if (!(await confirmBox(t('c_deleteAsk', { name: c.name || t('unnamed') })))) return;
         s.customFeels = s.customFeels.filter(x => x.id !== c.id);
         delete s.tagMap[c.id];
         s.feel = 'smooth';
@@ -653,7 +712,7 @@ export function createUI({ compact = false } = {}) {
         s.feel = list[0].id;
         apply(); save();
         renderFeels('custom', false);
-        toast(t('imported', { name: list.map(c => c.name).join('、') }));
+        toast(t('imported', { name: list.map(c => c.name || t('unnamed')).join('、') }));
     }
 
     // ---------- 拖动排序（自定义风格） ----------
@@ -747,7 +806,8 @@ export function createUI({ compact = false } = {}) {
         wrap.addEventListener('pointerup', up);
         wrap.addEventListener('pointercancel', up);
         // 浮起之后阻止页面滚动（必须是非被动监听）
-        wrap.addEventListener('touchmove', (e) => { if (drag.active) e.preventDefault(); }, { passive: false });
+        // 只放在卡片区域：非被动的 touchmove 监听会让从这里开始的滚动都要等主线程
+        $('.me-feels').addEventListener('touchmove', (e) => { if (drag.active) e.preventDefault(); }, { passive: false });
         wrap.addEventListener('contextmenu', (e) => { if (drag.el) e.preventDefault(); });
     }
 
@@ -830,7 +890,8 @@ export function createUI({ compact = false } = {}) {
     /** 自定义风格或标签有增删改时重新生成卡片（另一份界面修改后，这一份同步更新） */
     const signature = () => {
         const s = state.settings;
-        return JSON.stringify([s.customFeels.map(c => [c.id, c.name, c.curve]), s.tags, s.tagMap]);
+        // 不含名称和曲线：改名、换曲线时由 setCustom 直接更新卡片，不重建（重建会让输入框失去焦点）
+        return JSON.stringify([s.customFeels.map(c => c.id), s.tags, s.tagMap]);
     };
 
     function sync() {
@@ -857,6 +918,7 @@ export function createUI({ compact = false } = {}) {
             $('.me-sub-in').textContent = s.panelSplit ? t('panelIn') : t('panelForm');
             wrap.classList.toggle('me-permod-on', !!s.perModule);
             renderProfiles();
+            syncOrg();
             const count = (sec, on, all) => { $(`[data-sec="${sec}"] .me-fold-count`).textContent = t('countOn', { n: on, m: all }); };
             count('scope', MODULES.filter(m => s.modules[m]).length, MODULES.length);
             count('compat', COMPAT.filter(k => s[k]).length, COMPAT.length);
@@ -1005,11 +1067,11 @@ export function createUI({ compact = false } = {}) {
         const head = sec.querySelector('.me-fold-head');
         const open = force ?? head.getAttribute('aria-expanded') !== 'true';
         if ((head.getAttribute('aria-expanded') === 'true') === open) return;
-        head.setAttribute('aria-expanded', String(open));
-        sec.classList.toggle('me-open', open);
-        // 与酒馆折叠块同一套动画（高度过渡），后面的分区随高度变化移动
-        toggleBlock(sec.querySelector('.me-fold-body'), open, { light: true });
-        if (open) staggerIn(sec.querySelectorAll('.me-sg-head, .me-row, .me-pad'), 40);
+        // 内容随展开一起出现，不再逐行延迟
+        morph([[sec.querySelector('.me-fold-body'), open]], () => {
+            head.setAttribute('aria-expanded', String(open));
+            sec.classList.toggle('me-open', open);
+        });
     }
 
     /** 分模块设置开关：整体的值收起、配置展开（或反过来）；各项下面的滑块随「作用范围」显示 */
@@ -1088,7 +1150,23 @@ export function createUI({ compact = false } = {}) {
                 if (el.dataset.group !== shownGroup) { sheetFor = null; renderFeels(el.dataset.group, true); }
                 return;
             }
-            if (el.dataset.newtag) { newTag(el.dataset.newtag === 'sheet' ? sheetFor : null); return; }
+            if (el.dataset.org) {
+                if (el.dataset.org === 'toggle') toggleOrg();
+                else if (el.dataset.org === 'tag') morph([[$('.me-orgsheet'), !org.sheet]], () => { org.sheet = !org.sheet; syncOrg(); });
+                else orgDelete();
+                return;
+            }
+            if (el.dataset.orgtag) { orgTag(el.dataset.orgtag); return; }
+            if (org.on && el.dataset.feel) {
+                const id = el.dataset.feel;
+                if (org.sel.has(id)) org.sel.delete(id); else org.sel.add(id);
+                el.classList.toggle('me-picked', org.sel.has(id));
+                const { v } = ui();
+                if (org.sel.has(id)) el.querySelector('.me-pick')?.animate([{ scale: '0.4' }, { scale: '1' }], { duration: 360, easing: v('--me-rel') || 'ease-out' });
+                syncOrg();
+                return;
+            }
+            if (el.dataset.newtag) { newTag(el.dataset.newtag === 'sheet' ? sheetFor : el.dataset.newtag === 'org' ? 'org' : null); return; }
             if (el.dataset.tagact) { tagAction(el.dataset.tagact); return; }
             if (el.dataset.tagtoggle) {
                 const id = el.dataset.tagtoggle;
@@ -1120,20 +1198,25 @@ export function createUI({ compact = false } = {}) {
                 const base = currentFeel(s);
                 const c = customFrom(base.custom ? 'smooth' : base.id);
                 c.name = `${t('group_custom')} ${s.customFeels.length + 1}`;
-                s.customFeels.push(c);
-                s.feel = c.id;
-                apply(); save();
-                structSig = signature();
-                flip(() => renderFeels('custom', false));
+                // 编辑区随新卡片一起揭开。先量位置再改设置：改动后再量要多一次整页排版
+                morph([[$('.me-editor'), true]], () => {
+                    s.customFeels.push(c);
+                    s.feel = c.id;
+                    structSig = signature();
+                    apply();
+                    renderFeels('custom', false);
+                });
+                save();
                 return;
             }
             if (el.dataset.import) { importCustom(); return; }
             if (el.dataset.feel) {
-                s.feel = el.dataset.feel;
-                apply(); save();
+                const pickFeel = () => { s.feel = el.dataset.feel; apply(); };
+                if (shownGroup === 'custom' && !compact) morph([[$('.me-editor'), !org.on]], () => { pickFeel(); renderEditor(); });
+                else pickFeel();
+                save();
                 const { v } = ui();
                 el.querySelector('.me-check')?.animate([{ scale: '0.3', opacity: 0 }, { scale: '1', opacity: 1 }], { duration: 480, easing: v('--me-rel') || 'ease-out' });
-                if (shownGroup === 'custom' && !compact) flip(renderEditor);
                 demo(true);
                 return;
             }
@@ -1141,8 +1224,9 @@ export function createUI({ compact = false } = {}) {
             const cChips = el.closest('[data-c-chips]');
             if (cChips) {
                 const key = cChips.dataset.cChips;
+                const wasSpring = editing()?.curve === 'spring';
                 setCustom(key, el.dataset.v);
-                if (key === 'curve') flip(renderEditor);
+                if (key === 'curve' && wasSpring !== (el.dataset.v === 'spring')) flip(renderEditor);
                 else cChips.querySelectorAll('.me-chip').forEach(c => c.setAttribute('aria-pressed', String(c === el)));
                 demo(true);
                 return;

@@ -64,7 +64,8 @@ export function sanitizeCustom(c, i = 0) {
     const legacyS = c?.s;
     const out = {
         id: /^c-[a-z0-9]{1,12}$/.test(c?.id) ? c.id : newId(i),
-        name: cleanName(c?.name) || '自定义',
+        // 名称可以为空（卡片上显示「未命名」）
+        name: cleanName(c?.name),
         curve: CURVES.some(x => x.id === c?.curve) ? c.curve : 'expo',
         origin: ORIGINS.some(x => x.id === c?.origin) ? c.origin : 'center',
         formIn: FORMS_IN.includes(c?.formIn) ? c.formIn : 'drop',
@@ -93,7 +94,7 @@ export function buildFeel(c) {
     const stepped = easing.startsWith('steps');
     const s = c.sx === c.sy ? c.sx : `${c.sx} ${c.sy}`;
     return {
-        id: c.id, group: 'custom', zh: c.name, en: c.name, dzh: '', den: '', custom: true,
+        id: c.id, group: 'custom', zh: c.name || '未命名', en: c.name || 'Untitled', dzh: '', den: '', custom: true,
         in: easing, inDur: dur, spring: springParams,
         out: stepped ? 'steps(3, end)' : 'cubic-bezier(0.3, 0, 0.8, 0.15)', outDur: c.outDur,
         fade: stepped ? easing : 'cubic-bezier(0.2, 0, 0, 1)',
@@ -192,7 +193,8 @@ const ADD = 0x2B3C4D5E6F7n;
 
 /** 导出一个自定义风格：「名称：#xxxxxxxxxxx」 */
 export function exportStyle(c) {
-    return `${c.name}：#${toB58((packStyle(c) * MUL + ADD) % MOD, STYLE_CODE_LEN)}`;
+    const code = `#${toB58((packStyle(c) * MUL + ADD) % MOD, STYLE_CODE_LEN)}`;
+    return c.name ? `${c.name}：${code}` : code;
 }
 
 function unpackStyle(code) {
@@ -241,7 +243,9 @@ export function importStyles(text) {
     }
     const parts = splitCode(text, '#');
     if (!parts || parts.code.length !== STYLE_CODE_LEN) throw new Error('format');
-    return [sanitizeCustom({ ...unpackStyle(parts.code), name: parts.name || '导入' })];
+    // 码里没有名称时，用曲线的名称（如「吸附」）
+    const c = unpackStyle(parts.code);
+    return [sanitizeCustom({ ...c, name: parts.name || CURVES.find(x => x.id === c.curve)?.zh || '' })];
 }
 
 // ---------- 分模块配置 ----------
