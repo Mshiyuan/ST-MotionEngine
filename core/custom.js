@@ -9,6 +9,7 @@
 //   各字段的顺序和取值个数一旦发布就不能改，否则旧码会解成别的值；需要改时换一个前缀字符。
 import { spring, FEELS } from './tokens.js';
 import { PANEL_FORMS } from './forms.js';
+import { name as nameOf } from './i18n.js';
 
 /** 进场曲线预设。spring 由刚度、阻尼生成 */
 export const CURVES = [
@@ -57,6 +58,10 @@ const snap = (n, [lo, hi, , step]) => {
 };
 const clamp = (n, r) => (Number.isFinite(Number(n)) && n !== null && n !== '' ? snap(Number(n), r) : r[2]);
 const cleanName = (s) => String(s ?? '').replace(/[<>&"]/g, '').replace(/[#@]/g, '').trim().slice(0, 16);
+// 说明：分享码里写在名称后的全角括号里，所以不能含全角括号
+const cleanDesc = (s) => String(s ?? '').replace(/[<>&"]/g, '').replace(/[#@（）]/g, '').trim().slice(0, 24);
+/** 曲线的名称，用作说明的默认值 */
+export const curveName = (id) => { const c = CURVES.find(x => x.id === id); return c ? nameOf(c) : ''; };
 
 /** 把任意输入整理成合法的自定义风格参数 */
 export function sanitizeCustom(c, i = 0) {
@@ -71,6 +76,8 @@ export function sanitizeCustom(c, i = 0) {
         formIn: FORMS_IN.includes(c?.formIn) ? c.formIn : 'drop',
         formOut: FORMS_OUT.includes(c?.formOut) ? c.formOut : (FORM_IDS.includes(c?.formOut) ? 'fade' : 'drop'),
     };
+    // 说明可以为空；旧版没有这一项，用曲线的名称（和以前卡片上显示的一样）
+    out.desc = c?.desc === undefined ? curveName(out.curve) : cleanDesc(c.desc);
     for (const [k, r] of Object.entries(RANGES)) {
         const raw = (k === 'sx' || k === 'sy') && c?.[k] === undefined ? legacyS : c?.[k];
         out[k] = clamp(raw, r);
@@ -191,10 +198,13 @@ function inverse(a, m) {
 const INV = inverse(MUL, MOD);
 const ADD = 0x2B3C4D5E6F7n;
 
-/** 导出一个自定义风格：「名称：#xxxxxxxxxxx」 */
+/** 导出一个自定义风格：「名称（说明）：#xxxxxxxxxxx」，没有说明时为「名称：#xxxxxxxxxxx」 */
 export function exportStyle(c) {
     const code = `#${toB58((packStyle(c) * MUL + ADD) % MOD, STYLE_CODE_LEN)}`;
-    return c.name ? `${c.name}：${code}` : code;
+    // 名称以全角右括号结尾而没有说明时，补一对空括号，导入时不会把名称里的括号当成说明
+    const note = c.desc ? `（${c.desc}）` : /）$/.test(c.name) ? '（）' : '';
+    const head = `${c.name}${note}`;
+    return head ? `${head}：${code}` : code;
 }
 
 function unpackStyle(code) {
@@ -216,7 +226,7 @@ function splitCode(text, mark) {
     const t = String(text || '').trim();
     const m = t.match(new RegExp(`^(.*?)[\\s：:]*\\${mark}([1-9A-HJ-NP-Za-km-z]{1,64})\\s*$`, 's'));
     if (!m) return null;
-    return { name: cleanName(m[1]), code: m[2] };
+    return { name: cleanName(m[1]), raw: m[1].trim(), code: m[2] };
 }
 
 // 0.4.0 的导出码（ME1: + base64 JSON），只为兼容旧码保留
@@ -243,9 +253,11 @@ export function importStyles(text) {
     }
     const parts = splitCode(text, '#');
     if (!parts || parts.code.length !== STYLE_CODE_LEN) throw new Error('format');
-    // 码里没有名称时，用曲线的名称（如「吸附」）
+    // 码里没有名称时，用曲线的名称（如「吸附」）；名称后的全角括号是说明，没有括号时说明用曲线的名称
     const c = unpackStyle(parts.code);
-    return [sanitizeCustom({ ...c, name: parts.name || CURVES.find(x => x.id === c.curve)?.zh || '' })];
+    const note = parts.raw.match(/^(.*)（([^（）]*)）$/s);
+    const nm = note ? cleanName(note[1]) : parts.name;
+    return [sanitizeCustom({ ...c, name: nm || CURVES.find(x => x.id === c.curve)?.zh || '', desc: note ? note[2] : undefined })];
 }
 
 // ---------- 分模块配置 ----------

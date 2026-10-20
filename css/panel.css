@@ -96,6 +96,10 @@
 
 /* 风格卡片：名称、说明、运动曲线（横轴时间，竖轴进度；虚线是终点，越过虚线为回弹）、自动标签、标签按钮 */
 :is(#me-settings, #me-quick) .me-feels { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+/* 切换分组：旧内容的影子叠在原处滑出；滑动期间横向裁掉分区外的部分 */
+:is(#me-settings, #me-quick) [data-sec="feel"] { position: relative; }
+:is(#me-settings, #me-quick) [data-sec="feel"].me-sliding { overflow-x: clip; }
+:is(#me-settings, #me-quick) .me-page-ghost { position: absolute !important; margin: 0 !important; box-sizing: border-box; pointer-events: none; }
 :is(#me-settings, #me-quick) .me-feel {
     position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 3px; margin: 0; padding: 9px 12px 8px;
     text-align: left; border-radius: 12px; border: 1.5px solid transparent; background: var(--me-fill);
@@ -130,8 +134,8 @@
 :is(#me-settings, #me-quick) .me-feel-name.me-unnamed { font-weight: 500; opacity: 0.45; }
 
 /* 整理：卡片右上角出现勾选标记，点卡片是勾选；底部是数量和批量操作 */
-:is(#me-settings, #me-quick) .me-orgbar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
-:is(#me-settings, #me-quick) .me-org-hint { display: none; flex: 1; font-size: 0.76em; line-height: 1.4; opacity: 0.6; }
+:is(#me-settings, #me-quick) .me-headrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+:is(#me-settings, #me-quick) .me-org-hint { display: none; padding: 0 4px; font-size: 0.76em; line-height: 1.4; opacity: 0.6; }
 :is(#me-settings, #me-quick).me-organizing .me-org-hint { display: block; }
 :is(#me-settings, #me-quick) .me-orgacts { display: none; align-items: center; gap: 8px; flex-wrap: wrap; }
 :is(#me-settings, #me-quick).me-organizing .me-orgacts { display: flex; }
@@ -226,6 +230,16 @@
 /* 自定义风格编辑区 */
 :is(#me-settings, #me-quick) .me-editor { display: flex; flex-direction: column; gap: 8px; }
 :is(#me-settings, #me-quick) .me-c-name { flex: 1; min-width: 0; max-width: 60%; margin: 0; }
+/* 参数区：标题一行，点一下展开 / 收起 */
+:is(#me-settings, #me-quick) .me-c-head {
+    display: flex; align-items: center; justify-content: space-between; width: 100%; margin: 0; padding: 12px 14px;
+    border: 0; background: none; text-align: left; font-weight: 600;
+}
+:is(#me-settings, #me-quick) .me-c-icon { opacity: 0.6; font-size: 0.85em; transition: rotate 280ms cubic-bezier(0.2, 0, 0, 1); }
+:is(#me-settings, #me-quick) .me-c-open .me-c-icon { rotate: 180deg; }
+:is(#me-settings, #me-quick) .me-c-body { display: none; box-shadow: inset 0 1px 0 var(--me-fill-2); }
+:is(#me-settings, #me-quick) .me-c-open .me-c-body { display: block; }
+:is(#me-settings, #me-quick) .me-c-note { padding: 4px 12px 12px; }
 :is(#me-settings, #me-quick) .me-tools { display: flex; gap: 8px; flex-wrap: wrap; padding: 10px 12px 4px; }
 :is(#me-settings, #me-quick) .me-danger { color: var(--me-accent); }
 

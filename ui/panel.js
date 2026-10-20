@@ -10,13 +10,13 @@ import { PANEL_FORMS } from '../core/forms.js';
 import { state, play, scoped, poseExtras } from '../core/engine.js';
 import { t, name, desc } from '../core/i18n.js';
 import { MODULES, SCOPE_GROUPS, apply, save, resetSettings, onApply, currentFeel, tuneOf } from '../core/settings.js';
-import { CURVES, ORIGINS, RANGES, FORMS_IN, FORMS_OUT, MAX_CUSTOM, buildFeel, customFrom, sanitizeCustom, newId, exportStyle, importStyles, exportTune, importTune } from '../core/custom.js';
+import { CURVES, ORIGINS, RANGES, FORMS_IN, FORMS_OUT, MAX_CUSTOM, buildFeel, customFrom, sanitizeCustom, newId, exportStyle, importStyles, exportTune, importTune, curveName } from '../core/custom.js';
 import { systemReduced } from '../core/guard.js';
 import { previewPanel } from '../modules/drawers.js';
 import { iconFx } from '../modules/icons.js';
 import { morph as morphFx } from './morph.js';
 
-const VERSION = '0.5.1';
+const VERSION = '0.5.2';
 const COMPAT = ['prerender', 'lite', 'override', 'followSystemReduced', 'followPointer', 'haptics'];
 const TABS = ['panel', 'button', 'switch', 'checkbox', 'icon', 'menu', 'toast', 'list'];
 const BASE_GROUPS = [...GROUPS.map(g => g.id), 'custom'];
@@ -115,8 +115,7 @@ function feelsOf(group) {
     const builtin = FEELS.map(f => ({ id: f.id, title: name(f), sub: desc(f), f, custom: false }));
     const customs = s.customFeels.map(c => {
         const f = buildFeel(c);
-        const curve = CURVES.find(x => x.id === c.curve);
-        return { id: c.id, title: c.name, sub: curve ? name(curve) : '', f, custom: true };
+        return { id: c.id, title: c.name, sub: c.desc, f, custom: true };
     });
     if (group === 'custom') return customs;
     if (group.startsWith('tag:')) {
@@ -160,16 +159,16 @@ const modRow = (m) => `
 
 const feelSection = (compact) => `
   <section class="me-sec" data-sec="feel">
-    <div class="me-label">${t('secFeel')}</div>
+    ${compact ? `<div class="me-label">${t('secFeel')}</div>` : `<div class="me-headrow">
+      <div class="me-label">${t('secFeel')}</div>
+      <button type="button" class="me-mini" data-org="toggle"><i class="fa-solid fa-list-check"></i> <span>${t('org')}</span></button>
+    </div>`}
     <div class="me-seg-wrap"><div class="me-seg" role="tablist"></div></div>
     <div class="me-tagbar" hidden>
       <button type="button" class="me-mini" data-tagact="rename">${t('tagRename')}</button>
       <button type="button" class="me-mini" data-tagact="delete">${t('tagDelete')}</button>
     </div>
-    ${compact ? '' : `<div class="me-orgbar">
-      <small class="me-org-hint">${t('orgHint')}</small>
-      <button type="button" class="me-mini" data-org="toggle"><i class="fa-solid fa-list-check"></i> <span>${t('org')}</span></button>
-    </div>`}
+    ${compact ? '' : `<small class="me-org-hint">${t('orgHint')}</small>`}
     <div class="me-feels"></div>
     <p class="me-foot me-empty" hidden>${t('tagEmpty')}</p>
     ${compact ? '' : `<div class="me-orgacts">
@@ -485,11 +484,63 @@ export function createUI({ compact = false } = {}) {
             if (!compact) { renderEditor(); renderSheet(); }
         };
         const moved = shownGroup !== group;
+        const from = shownGroup;
         shownGroup = group;
         if (moved) placeInd(animate);
         if (!animate) { build(); return; }
+        if (moved && from && !state.reduced && !state.settings.lite) { slide(from, group, build); return; }
         flip(build);
         staggerIn([...box.children]);
+    }
+
+    /** 切换分组时随分组变化的几块：旧内容向一侧滑出，新内容从另一侧滑入 */
+    const PAGE = ['.me-tagbar', '.me-feels', '.me-empty', '.me-sheet', '.me-editor'];
+    let sliding = null;
+
+    function slide(from, to, build) {
+        sliding?.finish();
+        const ids = groupIds();
+        // 新分组在右边：内容向左滑
+        const dir = ids.indexOf(to) >= ids.indexOf(from) ? 1 : -1;
+        const sec = $('[data-sec="feel"]');
+        const els = PAGE.map(sel => $(sel)).filter(Boolean);
+        // 旧内容的位置（相对分区），用来放影子
+        const before = els.filter(el => !el.hidden && el.getClientRects().length).map(el => [el, { top: el.offsetTop, left: el.offsetLeft, w: el.offsetWidth, h: el.offsetHeight }]);
+        const W = sec.clientWidth + 16;
+        const ghosts = [];
+        flip(() => {
+            for (const [el, g] of before) {
+                const c = /** @type {HTMLElement} */ (el.cloneNode(true));
+                c.dataset.meGhost = '1';
+                c.classList.add('me-page-ghost');
+                c.setAttribute('aria-hidden', 'true');
+                c.inert = true;
+                Object.assign(c.style, { top: `${g.top}px`, left: `${g.left}px`, width: `${g.w}px`, height: `${g.h}px` });
+                ghosts.push(c);
+            }
+            sec.append(...ghosts);
+            sec.classList.add('me-sliding');
+            build();
+        }, '.me-dim > .me-sec:not([data-sec="feel"]), .me-dim > .me-card, .me-ver, .me-orgacts, .me-orgsheet');
+        const { dur, v } = ui();
+        const D = dur('--me-p-in-dur') || dur('--me-in-dur') || 1;
+        const ease = v('--me-p-in') || v('--me-in');
+        const anims = [];
+        for (const c of ghosts) anims.push(c.animate([{ translate: '0 0', opacity: 1 }, { translate: `${-dir * W}px 0`, opacity: 0.3 }], { duration: D, easing: ease, fill: 'forwards' }));
+        for (const el of els) if (!el.hidden && el.getClientRects().length) anims.push(el.animate([{ translate: `${dir * W}px 0` }, { translate: '0 0' }], { duration: D, easing: ease }));
+        let done = false;
+        const me = {
+            finish() {
+                if (done) return;
+                done = true;
+                anims.forEach(a => a.cancel());
+                ghosts.forEach(c => c.remove());
+                sec.classList.remove('me-sliding');
+                if (sliding === me) sliding = null;
+            },
+        };
+        sliding = me;
+        Promise.all(anims.map(a => a.finished)).then(() => me.finish(), () => { /* 被取消 */ });
     }
 
     function syncFeels() {
@@ -613,24 +664,47 @@ export function createUI({ compact = false } = {}) {
     const editing = () => (shownGroup === 'custom' ? state.settings.customFeels.find(c => c.id === state.settings.feel) : null);
     const UNITS = { inDur: 'ms', outDur: 'ms', y: 'px', sx: '×', sy: '×', blur: 'px', press: '×', stagger: 'ms', stiffness: '', damping: '' };
 
+    /** 参数区是否展开：新建、复制后展开；点选已有的风格、导入后收起 */
+    let editorOpen = false;
+
+    function syncEditorOpen() {
+        const box = $('.me-editor');
+        box?.classList.toggle('me-c-open', editorOpen);
+        box?.querySelector('.me-c-head')?.setAttribute('aria-expanded', String(editorOpen));
+    }
+
     function renderEditor() {
         const box = $('.me-editor');
         if (!box) return;
         const c = editing();
         box.hidden = !c;
-        if (!c) { box.innerHTML = ''; return; }
+        // 隐藏时保留原内容：收起过程中（影子）仍显示原来的参数
+        if (!c) return;
+        if (!box.querySelector('.me-c-body')) {
+            box.innerHTML = `
+          <div class="me-card">
+            <button type="button" class="me-c-head" aria-expanded="false"><span>${t('c_params')}</span><i class="fa-solid fa-chevron-down me-c-icon"></i></button>
+            <div class="me-c-body"></div>
+          </div>`;
+        }
+        syncEditorOpen();
+        // 收起时不更新参数区：收起动画里仍是原来的内容，展开时再填
+        if (editorOpen) fillEditor(c);
+    }
+
+    function fillEditor(c) {
         const formName = (id) => name(PANEL_FORMS.find(f => f.id === id) || { zh: id, en: id });
         const num = (k) => `
           <div class="me-row me-range"><span>${t('c_' + k)}</span><input type="range" min="${RANGES[k][0]}" max="${RANGES[k][1]}" step="${RANGES[k][3]}" data-c="${k}" value="${c[k]}"><output>${c[k]}${UNITS[k]}</output></div>`;
         const pick = (key, list) => `<div class="me-chips" data-c-chips="${key}">${list.map(x => `<button type="button" class="me-chip" data-v="${x.id}" aria-pressed="${x.id === c[key]}">${x.label}</button>`).join('')}</div>`;
-        box.innerHTML = `
-          <div class="me-card">
+        $('.me-c-body').innerHTML = `
             <div class="me-tools">
               <button type="button" class="me-mini" data-cact="copy"><i class="fa-regular fa-copy"></i> ${t('c_copy')}</button>
               <button type="button" class="me-mini" data-cact="export"><i class="fa-solid fa-share-nodes"></i> ${t('c_export')}</button>
               <button type="button" class="me-mini me-danger" data-cact="delete"><i class="fa-regular fa-trash-can"></i> ${t('c_delete')}</button>
             </div>
             <div class="me-row"><span>${t('c_name')}</span><input type="text" class="text_pole me-c-name" maxlength="16" value="${esc(c.name)}" placeholder="${t('c_namePh')}"></div>
+            <div class="me-row"><span>${t('c_desc')}</span><input type="text" class="text_pole me-c-name me-c-desc" maxlength="24" value="${esc(c.desc)}" placeholder="${t('c_descPh')}"></div>
             <div class="me-pad">
               <div class="me-sub">${t('c_curve')}</div>
               ${pick('curve', CURVES.map(x => ({ id: x.id, label: name(x) })))}
@@ -648,8 +722,7 @@ export function createUI({ compact = false } = {}) {
               <div class="me-sub">${t('c_formOut')}</div>
               ${pick('formOut', FORMS_OUT.map(id => ({ id, label: formName(id) })))}
             </div>
-          </div>
-          <p class="me-foot">${t('customNote')}</p>`;
+            <p class="me-foot me-c-note">${t('customNote')}</p>`;
     }
 
     /** 修改自定义风格的一项参数 */
@@ -657,7 +730,13 @@ export function createUI({ compact = false } = {}) {
         const s = state.settings;
         const i = s.customFeels.findIndex(c => c.id === s.feel);
         if (i < 0) return;
-        s.customFeels[i] = sanitizeCustom({ ...s.customFeels[i], [key]: value });
+        const prev = s.customFeels[i];
+        const next = { ...prev, [key]: value };
+        // 说明还是原曲线的名称（没改过）时，跟着换成新曲线的名称
+        const follow = key === 'curve' && prev.desc === curveName(prev.curve);
+        if (follow) next.desc = curveName(value);
+        s.customFeels[i] = sanitizeCustom(next);
+        if (follow) { const d = $('.me-c-desc'); if (d) d.value = s.customFeels[i].desc; }
         apply(); save();
         // 卡片上的曲线和标签随之更新
         const el = $(`.me-feel[data-feel="${s.feel}"]`);
@@ -667,9 +746,8 @@ export function createUI({ compact = false } = {}) {
             el.querySelector('.me-curve').outerHTML = curveSvg(f.in);
             const m = feelMeta(f);
             el.querySelector('.me-feel-meta').innerHTML = `<i>${t('sp_' + m.speed)}</i><i>${t('bo_' + m.bounce)}</i>`;
-            const curve = CURVES.find(x => x.id === s.customFeels[i].curve);
-            el.querySelector('.me-feel-desc').textContent = curve ? name(curve) : '';
         }
+        if (key === 'curve' || key === 'desc') el.querySelector('.me-feel-desc').textContent = s.customFeels[i].desc;
         if (key === 'name') {
             const n = el.querySelector('.me-feel-name');
             n.textContent = s.customFeels[i].name || t('unnamed');
@@ -686,9 +764,13 @@ export function createUI({ compact = false } = {}) {
             if (s.customFeels.length >= MAX_CUSTOM) { toast(t('importFull', { n: MAX_CUSTOM }), 'warning'); return; }
             const dup = sanitizeCustom({ ...c, id: newId(), name: c.name ? `${c.name} 2`.slice(0, 16) : '' });
             s.customFeels.splice(s.customFeels.indexOf(c) + 1, 0, dup);
-            s.feel = dup.id;
-            apply(); save();
-            renderFeels('custom', false);
+            morph([[$('.me-c-body'), true]], () => {
+                s.feel = dup.id;
+                editorOpen = true;
+                apply();
+                renderFeels('custom', false);
+            });
+            save();
             return;
         }
         if (!(await confirmBox(t('c_deleteAsk', { name: c.name || t('unnamed') })))) return;
@@ -710,9 +792,40 @@ export function createUI({ compact = false } = {}) {
         list = list.slice(0, room).map(c => ({ ...c, id: newId() }));
         s.customFeels.push(...list);
         s.feel = list[0].id;
+        editorOpen = false;
         apply(); save();
         renderFeels('custom', false);
         toast(t('imported', { name: list.map(c => c.name || t('unnamed')).join('、') }));
+    }
+
+    // ---------- 左右滑动卡片区切换分组（触屏） ----------
+    // 先看手指往哪个方向走：横向为主才算切换，竖向照常滚动面板；按住拖动排序时不切换
+    function bindSwipe() {
+        const sw = { on: false, x: 0, y: 0, lock: '' };
+        wrap.addEventListener('touchstart', (e) => {
+            sw.on = e.touches.length === 1 && !!/** @type {Element} */ (e.target).closest?.('.me-feels');
+            if (!sw.on) return;
+            sw.x = e.touches[0].clientX; sw.y = e.touches[0].clientY; sw.lock = '';
+        }, { passive: true });
+        wrap.addEventListener('touchmove', (e) => {
+            if (!sw.on || sw.lock) return;
+            const dx = e.touches[0].clientX - sw.x, dy = e.touches[0].clientY - sw.y;
+            if (Math.hypot(dx, dy) < 10) return;
+            sw.lock = Math.abs(dx) > Math.abs(dy) * 1.5 ? 'x' : 'y';
+        }, { passive: true });
+        wrap.addEventListener('touchcancel', () => { sw.on = false; }, { passive: true });
+        wrap.addEventListener('touchend', (e) => {
+            if (!sw.on) return;
+            sw.on = false;
+            if (sw.lock !== 'x' || drag.active || justDragged) return;
+            const dx = e.changedTouches[0].clientX - sw.x;
+            if (Math.abs(dx) < 40) return;
+            const ids = groupIds();
+            const next = ids[ids.indexOf(shownGroup) + (dx < 0 ? 1 : -1)];
+            if (!next) return;
+            sheetFor = null;
+            renderFeels(next, true);
+        }, { passive: true });
     }
 
     // ---------- 拖动排序（自定义风格） ----------
@@ -1199,7 +1312,8 @@ export function createUI({ compact = false } = {}) {
                 const c = customFrom(base.custom ? 'smooth' : base.id);
                 c.name = `${t('group_custom')} ${s.customFeels.length + 1}`;
                 // 编辑区随新卡片一起揭开。先量位置再改设置：改动后再量要多一次整页排版
-                morph([[$('.me-editor'), true]], () => {
+                morph([[$('.me-editor'), true], [$('.me-c-body'), true]], () => {
+                    editorOpen = true;
                     s.customFeels.push(c);
                     s.feel = c.id;
                     structSig = signature();
@@ -1212,12 +1326,18 @@ export function createUI({ compact = false } = {}) {
             if (el.dataset.import) { importCustom(); return; }
             if (el.dataset.feel) {
                 const pickFeel = () => { s.feel = el.dataset.feel; apply(); };
-                if (shownGroup === 'custom' && !compact) morph([[$('.me-editor'), !org.on]], () => { pickFeel(); renderEditor(); });
+                // 点选另一个自定义风格：参数区收起
+                const other = el.dataset.feel !== s.feel;
+                if (shownGroup === 'custom' && !compact) morph([[$('.me-editor'), !org.on], [$('.me-c-body'), !org.on && (other ? false : editorOpen)]], () => { if (other) editorOpen = false; pickFeel(); renderEditor(); });
                 else pickFeel();
                 save();
                 const { v } = ui();
                 el.querySelector('.me-check')?.animate([{ scale: '0.3', opacity: 0 }, { scale: '1', opacity: 1 }], { duration: 480, easing: v('--me-rel') || 'ease-out' });
                 demo(true);
+                return;
+            }
+            if (el.classList.contains('me-c-head')) {
+                morph([[$('.me-c-body'), !editorOpen]], () => { editorOpen = !editorOpen; renderEditor(); });
                 return;
             }
             if (el.dataset.cact) { customAction(el.dataset.cact); return; }
@@ -1287,13 +1407,15 @@ export function createUI({ compact = false } = {}) {
                 return;
             }
             if (el.dataset.c) { setCustom(el.dataset.c, Number(el.value)); setOutput(el, `${el.value}${UNITS[el.dataset.c]}`); return; }
-            if (el.classList.contains('me-c-name')) setCustom('name', el.value);
+            if (el.classList.contains('me-c-desc')) setCustom('desc', el.value);
+            else if (el.classList.contains('me-c-name')) setCustom('name', el.value);
         });
         wrap.addEventListener('change', (e) => {
             const el = /** @type {HTMLElement} */ (e.target);
             if (el.dataset.range || el.dataset.c || el.dataset.tuneAmp || el.dataset.tuneSpeed || el.dataset.sgAmp || el.dataset.sgSpeed) demo(true);
         });
         if (!compact) bindDrag();
+        if (!compact) bindSwipe();
         // 分组条宽度变化（面板展开、旋转屏幕）时重新放指示块
         if (window.ResizeObserver) new ResizeObserver(() => placeInd(false)).observe($('.me-seg-wrap'));
     }
