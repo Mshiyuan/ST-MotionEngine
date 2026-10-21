@@ -6,7 +6,7 @@
 //     按行依次出现（同一行几乎同时），总时长只随行数增加，缩略图再小也不会拖得很长；
 //   - 只动透明度和位移，在合成线程执行；
 //   - 搜索时等输入和列表都停下来 260ms 后才播放，打字过程中不播放。
-import { active, play, state, scoped, sized, afterPaint, stopGroup } from '../core/engine.js';
+import { active, play, state, scoped, sized, afterPaint, stopGroup, poseExtras } from '../core/engine.js';
 
 /** 安全上限：可见区域里最多这么多项做动画 */
 const MAX_ITEMS = 120;
@@ -101,6 +101,42 @@ function animateItems(items, dir = 0, mod = 'lists') {
     return finish;
 }
 
+/**
+ * 背景缩略图：和设置预览里的「列表」一样的幅度（风格的位移 × 1.2 + 6px、完整缩放、风格的间隔）。
+ * 和面板的打开动画同时播放时看不出来，所以等面板淡入得差不多了再开始；
+ * 第一排立即开始，各排在约 0.4 秒内依次开始。返回立即结束这一批的函数
+ */
+function revealThumbs(items) {
+    if (!items.length) return null;
+    const { dur, v } = scoped('bgthumbs');
+    const start = Math.round(scoped('drawers').dur('--me-p-in-dur') * 0.45);
+    const D = dur('--me-in-dur') || 1;
+    const x = poseExtras('bgthumbs');
+    // 行号：顶边相差不到半个项高的算同一行
+    const rows = [];
+    let rowTop = -Infinity;
+    for (const [el, r] of items) {
+        if (r.top - rowTop > r.height / 2) { rows.push([]); rowTop = r.top; }
+        rows[rows.length - 1].push(el);
+    }
+    const step = Math.min(Math.max(dur('--me-stagger'), 20), 400 / Math.max(1, rows.length));
+    const gen = {};
+    const done = [];
+    rows.forEach((row, ri) => row.forEach((el, ci) => {
+        const delay = start + ri * step + ci * step * 0.25;
+        revealGen.set(el, gen);
+        done.push(play(el, 'list', [
+            [[{ opacity: 0 }, { opacity: 1 }], { duration: D * 0.6, delay, easing: v('--me-fade') }],
+            [[{ translate: `0 calc(${v('--me-y')} * 1.2 + 6px)`, scale: v('--me-s'), ...x.a }, { translate: '0 0', scale: '1', ...x.b }], { duration: D, delay, easing: v('--me-in') }],
+        ], { keep: true }));
+    }));
+    const finish = () => {
+        for (const [el] of items) if (revealGen.get(el) === gen) { revealGen.delete(el); stopGroup(el, 'list'); }
+    };
+    Promise.allSettled(done).then(finish);
+    return finish;
+}
+
 /** 列表项 → 最近一次播放它的那一批（新的一批开始后，旧批次的清理不再碰它） */
 const revealGen = new WeakMap();
 
@@ -175,7 +211,7 @@ export function installLists() {
             if (!now) { bgBatch?.(); bgBatch = null; return; }
             if (!active('bgthumbs') || state.reduced) return;
             // 等面板打开那一帧画完再读位置
-            afterPaint(() => visibleItems(bgList, 'bgthumbs'), items => { bgBatch = animateItems(items, 0, 'bgthumbs'); });
+            afterPaint(() => visibleItems(bgList, 'bgthumbs'), items => { bgBatch = revealThumbs(items); });
         }).observe(bg, { attributes: true, attributeFilter: ['class'] });
         // 开始滑动：缩略图立即到位
         bg.addEventListener('scroll', () => { if (bgBatch) { bgBatch(); bgBatch = null; } }, { capture: true, passive: true });
