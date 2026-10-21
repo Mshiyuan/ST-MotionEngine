@@ -16,8 +16,8 @@ import { previewPanel } from '../modules/drawers.js';
 import { iconFx } from '../modules/icons.js';
 import { morph as morphFx } from './morph.js';
 
-const VERSION = '0.5.2';
-const COMPAT = ['prerender', 'lite', 'override', 'followSystemReduced', 'followPointer', 'haptics'];
+const VERSION = '0.5.3';
+const COMPAT = ['prerender', 'pauseLoops', 'lite', 'override', 'followSystemReduced', 'followPointer', 'haptics', 'wandEntry'];
 const TABS = ['panel', 'button', 'switch', 'checkbox', 'icon', 'menu', 'toast', 'list'];
 const BASE_GROUPS = [...GROUPS.map(g => g.id), 'custom'];
 const LONG_PRESS_MS = 400;
@@ -194,7 +194,6 @@ function htmlFull() {
           <div class="me-lbl"><span>${t('enabled')}</span><small class="me-status"></small></div>
           <button type="button" class="me-switch" role="switch" data-key="enabled" aria-label="${t('enabled')}"></button>
         </div>
-        ${sw('wandEntry', t('wandEntry'), t('wandEntry_d'))}
       </div>
 
       <div class="me-dim">
@@ -433,20 +432,28 @@ export function createUI({ compact = false } = {}) {
     }
 
     /** 指示块移到选中的分组下面；分组条横向滚动时把选中项滚进可见范围 */
+    // 先读后写，位置没变就不写：改内联样式会让整页重算样式（酒馆 toggle-dependent.css 的 :has 规则），
+    // 面板展开时分组条的 ResizeObserver 会调用这里，写了再读要多排版一次
     function placeInd(animate = true) {
         const seg = $('.me-seg[role="tablist"]');
         const btn = seg.querySelector(`[data-group="${CSS.escape(shownGroup || '')}"]`);
-        seg.querySelectorAll('[data-group]').forEach(b => b.setAttribute('aria-selected', String(b === btn)));
+        seg.querySelectorAll('[data-group]').forEach(b => { const v = String(b === btn); if (b.getAttribute('aria-selected') !== v) b.setAttribute('aria-selected', v); });
         const ind = seg.querySelector('.me-ind');
         if (!btn) { ind.style.opacity = '0'; return; }
-        ind.style.opacity = '';
-        if (!animate) ind.style.transition = 'none';
-        ind.style.width = `${btn.offsetWidth}px`;
-        ind.style.translate = `${btn.offsetLeft}px 0`;
-        if (!animate) { ind.getBoundingClientRect(); ind.style.transition = ''; }
         const wrapEl = seg.parentElement;
-        const l = btn.offsetLeft, r = l + btn.offsetWidth;
-        if (l < wrapEl.scrollLeft || r > wrapEl.scrollLeft + wrapEl.clientWidth) wrapEl.scrollTo({ left: l - 24, behavior: animate ? 'smooth' : 'auto' });
+        const w = btn.offsetWidth, l = btn.offsetLeft, r = l + w;
+        const sl = wrapEl.scrollLeft, cw = wrapEl.clientWidth;
+        if (!w) return; // 面板还没显示
+        const width = `${w}px`, translate = `${l}px 0`;
+        if (ind.style.width !== width || ind.style.translate !== translate || ind.style.opacity) {
+            if (ind.style.opacity) ind.style.opacity = '';
+            if (!animate) ind.style.transition = 'none';
+            ind.style.width = width;
+            ind.style.translate = translate;
+            // 等新位置生效（下一帧算样式）之后再恢复过渡
+            if (!animate) requestAnimationFrame(() => requestAnimationFrame(() => { ind.style.transition = ''; }));
+        }
+        if (l < sl || r > sl + cw) wrapEl.scrollTo({ left: l - 24, behavior: animate ? 'smooth' : 'auto' });
     }
 
     // ---------- 风格卡片 ----------

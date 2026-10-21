@@ -2,12 +2,14 @@
 //
 // 性能做法：
 //   - 只在用户操作之后才处理（翻页按钮、每页条数、标签、搜索框）；其余时间观察回调直接返回，不读不写；
-//   - 列表换完一批（短时间内没有新的增删）才开始，一次批量读取位置，只给可见区域里的前 18 项做动画；
+//   - 列表换完一批（短时间内没有新的增删）才开始，一次批量读取位置，只给可见区域里的项做动画；
+//     按行依次出现（同一行几乎同时），总时长只随行数增加，缩略图再小也不会拖得很长；
 //   - 只动透明度和位移，在合成线程执行；
 //   - 搜索时等输入和列表都停下来 260ms 后才播放，打字过程中不播放。
-import { active, play, state, scoped, sized } from '../core/engine.js';
+import { active, play, state, scoped, sized, afterPaint, stopGroup } from '../core/engine.js';
 
-const MAX_ITEMS = 18;
+/** 安全上限：可见区域里最多这么多项做动画 */
+const MAX_ITEMS = 120;
 
 /** 分页列表：翻页控件 → 列表 */
 const PAGED = [
@@ -47,10 +49,15 @@ function onMutate(list) {
     }, a.settle);
 }
 
-/** 可见区域里的前若干项依次出现 */
+/** 可见区域里的项按行依次出现 */
 function reveal(list, dir = 0) {
-    if (!active('lists') || !list.isConnected) return;
-    const kids = [...list.children].slice(0, 60);
+    animateItems(visibleItems(list), dir);
+}
+
+/** 只读：可见区域里的项和位置 */
+function visibleItems(list) {
+    if (!active('lists') || !list.isConnected) return [];
+    const kids = [...list.children].slice(0, 240);
     // 一次读取全部位置，不穿插写入，只排版一次
     const rects = kids.map(el => el.getBoundingClientRect());
     const items = [];
@@ -58,19 +65,37 @@ function reveal(list, dir = 0) {
         const r = rects[i];
         if (r.width && r.height && r.bottom > 0 && r.top < innerHeight) items.push([kids[i], r]);
     }
+    return items;
+}
+
+function animateItems(items, dir = 0) {
     if (!items.length) return;
     const { dur, v } = scoped('lists');
     const step = Math.min(35, Math.max(dur('--me-stagger') * 0.6, 12));
-    items.forEach(([el, r], i) => {
+    // 行号：顶边相差不到半个项高的算同一行；同一行里从左到右稍微错开
+    let row = -1, col = 0, rowTop = -Infinity;
+    // 各项错开开始、错开结束。每项结束时各自清理的话，每次清理都要重算一次样式（酒馆的 :has() 规则使之波及整页），
+    // 分散在很多帧里。这里全部播完后一起清理，只重算一次
+    const gen = {};
+    const done = [];
+    items.forEach(([el, r]) => {
         const z = sized('lists', r.width, r.height);
-        const delay = i * step;
+        if (r.top - rowTop > r.height / 2) { row++; col = 0; rowTop = r.top; } else col++;
+        const delay = row * step + col * step * 0.3;
         const from = dir ? `${dir * 28 * z.af}px 0` : `0 calc(${z.y} + ${8 * z.af}px)`;
-        play(el, 'list', [
+        revealGen.set(el, gen);
+        done.push(play(el, 'list', [
             [[{ opacity: 0 }, { opacity: 1 }], { duration: dur('--me-in-dur') * 0.6, delay, easing: v('--me-fade') }],
             [[{ translate: from, scale: z.s }, { translate: '0 0', scale: '1' }], { duration: z.D, delay, easing: z.ease }],
-        ]);
+        ], { keep: true }));
+    });
+    Promise.allSettled(done).then(() => {
+        for (const [el] of items) if (revealGen.get(el) === gen) { revealGen.delete(el); stopGroup(el, 'list'); }
     });
 }
+
+/** 列表项 → 最近一次播放它的那一批（新的一批开始后，旧批次的清理不再碰它） */
+const revealGen = new WeakMap();
 
 function observe(list) {
     new MutationObserver((records) => {
@@ -142,7 +167,7 @@ export function installLists() {
             open = now;
             if (!now || !active('lists') || state.reduced) return;
             // 等面板打开那一帧画完再读位置
-            requestAnimationFrame(() => requestAnimationFrame(() => reveal(bgList, 0)));
+            afterPaint(() => visibleItems(bgList), items => animateItems(items, 0));
         }).observe(bg, { attributes: true, attributeFilter: ['class'] });
     }
 }

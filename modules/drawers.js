@@ -6,7 +6,7 @@
 // 如果插件此时读取尺寸，浏览器会被迫提前排版；接着插件再改样式，同一帧就得排两遍。所以：
 //   打开：先只写不读（面板设为透明并分好图层），等这一帧画完、排版已经算好，再读尺寸、开始动画；
 //   关闭：用打开时记下的尺寸，全程不读。
-import { active, play, stop, state, isRunning, ampOf } from '../core/engine.js';
+import { active, play, stop, state, isRunning, ampOf, afterPaint } from '../core/engine.js';
 import { resolveForm, panelTracks } from '../core/forms.js';
 import { hasFixedBackground } from '../core/guard.js';
 import { unfixBackground } from '../core/fixedbg.js';
@@ -43,6 +43,7 @@ function start(el, dir, g, t) {
             const restore = unfixBackground(el);
             if (restore) unfixed.set(el, restore);
         }
+        quiet(el);
         const { form, k } = resolveForm(el, dir, s);
         const { tracks, origin } = panelTracks(el, dir, { form, k, rect: g.rect, iconRect: g.iconRect, fixedBg: g.fixedBg && !unfixed.has(el), amp: ampOf('drawers'), lite: s.lite });
         return begin(el, dir, tracks, origin);
@@ -50,9 +51,7 @@ function start(el, dir, g, t) {
     // 关闭时酒馆切换 class 的那一帧要重算整块面板的样式（手机上几十到几百毫秒）。动画如果同时开始，
     // 这段时间会计入动画进度，画面第一次更新时动画已接近结束，面板看上去直接消失。因此先保持原样，等这一帧结束再开始。
     if (dir === 'out' && t) {
-        return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => {
-            resolve(token.get(el) === t ? go() : false);
-        })));
+        return new Promise(resolve => afterPaint(() => null, () => resolve(token.get(el) === t ? go() : false)));
     }
     return go();
 }
@@ -63,6 +62,7 @@ function begin(el, dir, tracks, origin) {
     if (scaled) el.style.transformOrigin = origin;
     return play(el, 'drawer', tracks).then(ok => {
         if (!ok) return false;
+        wake(el);
         if (scaled) el.style.transformOrigin = '';
         restoreBackground(el);
         // 打开期间保留图层：关闭时不用把整个面板重画到新图层上（那一帧会多出几十到上百毫秒）
@@ -72,6 +72,24 @@ function begin(el, dir, tracks, origin) {
 }
 
 const token = new WeakMap();
+
+// 美化里一直循环的动画（例如改 background-position 的流光）不能在合成线程执行，面板在屏幕上时每帧都要重画。
+// 开合、切换期间新旧两个面板同时在屏，重画翻倍。这段时间暂停面板里的循环动画，结束后从原处继续。
+const paused = new WeakMap(); // 面板 → 暂停的 CSS 动画
+
+function quiet(el) {
+    if (!state.settings?.pauseLoops || paused.has(el)) return;
+    const list = el.getAnimations({ subtree: true }).filter(a => a instanceof CSSAnimation && a.playState === 'running' && a.effect?.getTiming().iterations === Infinity);
+    list.forEach(a => a.pause());
+    paused.set(el, list);
+}
+
+function wake(el) {
+    const list = paused.get(el);
+    if (!list) return;
+    paused.delete(el);
+    list.forEach(a => { try { if (a.playState === 'paused') a.play(); } catch { /* 元素已移除 */ } });
+}
 
 function run(el, dir, iconEl = null) {
     const t = {};
@@ -83,18 +101,20 @@ function run(el, dir, iconEl = null) {
         // 关闭动画尚未结束时再次打开：不加占位，下一帧从当前画面继续
         // 占位动画的时长须长于最慢的第一帧：手机上首次打开大面板可能超过 1 秒，占位先结束会使面板短暂完整显示
         if (!isRunning(el, 'drawer')) el.animate([{ opacity: 0 }, { opacity: 0 }], { duration: 10000, id: 'me-hold' });
-        // rAF 回调在本帧排版之前执行，因此等两次：第二次时打开的那一帧已绘制完成，尺寸已经算好
-        return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => {
-            // 先量再撤掉占位动画：撤动画会让样式变脏，反过来做的话量尺寸时要先重算一遍样式
-            const g = token.get(el) === t ? measure(el, iconEl || iconOf(el)) : null;
-            el.getAnimations().forEach(a => a.id === 'me-hold' && a.cancel());
-            if (!g) return resolve(false);
-            resolve(start(el, 'in', g));
-        })));
+        // 等打开的那一帧画完再量（和面板里的列表等一起读，见 engine.afterPaint）
+        // 先量再撤掉占位动画：撤动画会让样式变脏，反过来做的话量尺寸时要先重算一遍样式
+        return new Promise(resolve => afterPaint(
+            () => (token.get(el) === t ? measure(el, iconEl || iconOf(el)) : null),
+            (g) => {
+                el.getAnimations().forEach(a => a.id === 'me-hold' && a.cancel());
+                if (!g) return resolve(false);
+                resolve(start(el, 'in', g));
+            }));
     }
     // 关闭方式为「无动画」：不保留显示、不等待，和原版一样立即关闭
     if (resolveForm(el, 'out', state.settings).form === 'none') {
         stop(el);
+        wake(el);
         restoreBackground(el);
         el.classList.remove('me-leaving');
         el.style.willChange = '';
@@ -113,6 +133,7 @@ function onClass(el) {
     if (!active('drawers') || el.classList.contains('pinnedOpen')) {
         token.set(el, {});
         stop(el);
+        wake(el);
         restoreBackground(el);
         el.classList.remove('me-leaving');
         el.style.willChange = '';

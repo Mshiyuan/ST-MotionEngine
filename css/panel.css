@@ -31,6 +31,10 @@
 
 /* 分区：小标题 + 圆角卡片 + 底部说明 */
 :is(#me-settings, #me-quick) .me-sec { display: flex; flex-direction: column; gap: 8px; }
+/* 展开「动效引擎」时整个设置面板要排版一次（好几屏长）。手感以下的分区在屏幕外时跳过排版和绘制，滚动到时再排；
+   auto 记住上次的实际高度，滚动条不会跳 */
+#me-settings .me-dim > .me-sec:not([data-sec="feel"]),
+#me-settings .me-dim > .me-card { content-visibility: auto; contain-intrinsic-size: auto 320px; }
 :is(#me-settings, #me-quick) .me-label { font-size: 0.8em; letter-spacing: 0.06em; opacity: 0.6; padding-left: 4px; }
 :is(#me-settings, #me-quick) .me-card { border-radius: 14px; background: var(--me-fill); overflow: hidden; }
 :is(#me-settings, #me-quick) .me-foot { margin: 0; padding: 0 4px; font-size: 0.8em; line-height: 1.55; opacity: 0.6; }

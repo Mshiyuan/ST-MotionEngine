@@ -43,8 +43,10 @@ export const DEFAULTS = Object.freeze({
     tagMap: Object.freeze({}),
     /** 作用范围里收起的分类 id */
     scopeFold: Object.freeze([]),
-    /** 在魔棒菜单显示快捷入口 */
+    /** 在扩展菜单显示快捷设置入口 */
     wandEntry: false,
+    /** 面板开合期间暂停面板里美化的循环动画 */
+    pauseLoops: true,
     modules: Object.freeze(Object.fromEntries(MODULES.map(m => [m, !OFF_BY_DEFAULT.includes(m)]))),
     prerender: true,
     lite: false,

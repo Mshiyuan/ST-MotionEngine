@@ -7,8 +7,8 @@ const DICT = {
     sysReducedFollow: ['系统已开启减少动态效果：只保留短暂淡入淡出', 'System reduced motion is on: short fades only'],
     stReduced: ['酒馆的「减少动态效果」已开启：只保留短暂淡入淡出', 'SillyTavern "Reduced motion" is on: short fades only'],
     stReducedPlay: ['酒馆的「减少动态效果」已开启，插件仍按设置播放', 'SillyTavern "Reduced motion" is on; playing per settings'],
-    wandEntry: ['在魔棒菜单显示快捷入口', 'Show in the wand menu'],
-    wandEntry_d: ['从魔棒菜单打开精简设置（总开关、风格、速度、幅度）', 'Open compact settings (switch, style, speed, amplitude) from the wand menu'],
+    wandEntry: ['扩展菜单快捷设置', 'Quick settings in Extensions menu'],
+    wandEntry_d: ['在扩展菜单中添加入口，打开精简设置（总开关、风格、速度、幅度）', 'Adds an entry to the Extensions menu that opens compact settings (switch, style, speed, amplitude)'],
     wandFull: ['完整设置', 'All settings'],
 
     secFeel: ['手感', 'Feel'],
@@ -134,7 +134,7 @@ const DICT = {
     m_drawers: ['顶栏面板与侧栏', 'Top panels & side panels'],
     m_drawers_d: ['顶栏图标打开的面板及左右侧栏', 'Panels opened from the top bar, and the side panels'],
     m_menus: ['左下角菜单', 'Bottom-left menus'],
-    m_menus_d: ['☰ 选项菜单与魔棒扩展菜单', 'The ☰ options menu and the wand menu'],
+    m_menus_d: ['☰ 选项菜单与扩展菜单', 'The ☰ options menu and the Extensions menu'],
     m_popups: ['弹窗', 'Popups'],
     m_popups_d: ['确认框、输入框等对话框', 'Confirm, input and other dialogs'],
     m_toasts: ['提示条', 'Toasts'],
@@ -178,6 +178,8 @@ const DICT = {
     followPointer_d: ['关闭时弹窗从屏幕中央出现', 'When off, popups appear from the center'],
     haptics: ['按压震动', 'Haptic feedback'],
     haptics_d: ['按下时轻微震动，仅安卓', 'Light vibration on press, Android only'],
+    pauseLoops: ['开合时暂停循环装饰', 'Pause looping decorations during transitions'],
+    pauseLoops_d: ['面板打开、关闭、切换期间，暂停面板内美化的循环动画（如流光），结束后继续', 'While a panel opens, closes or switches, theme animations that loop inside it pause, then resume'],
     reset: ['恢复默认设置', 'Reset to defaults'],
     resetAsk: ['恢复默认设置？自定义风格、标签和分模块配置会保留。', 'Reset to defaults? Custom styles, tags and configs are kept.'],
 };

@@ -1,6 +1,6 @@
 // 面板（顶栏抽屉、侧栏）的打开 / 关闭方式
 // 每种方式给出一组 WAAPI 轨道。打开方式描述「从哪里来」，关闭方式描述「到哪里去」。
-import { state, scoped, areaFactor } from './engine.js';
+import { state, scoped, areaFactor, viewW, viewH } from './engine.js';
 
 // 动效参数按模块读取（开了「分模块设置」时各模块用自己的幅度和速度）
 const { dur, v } = scoped('drawers');
@@ -38,13 +38,14 @@ const FEEL_FORMS = {
     steps: { in: 'drop', out: 'drop', k: 1 },
 };
 
-const isMobile = () => matchMedia('(max-width: 1000px)').matches;
+// 不用 matchMedia：读取 matches 可能触发样式计算
+const isMobile = () => viewW() <= 1000;
 
 /** 侧栏从哪一边来：左右侧栏各在其侧；其他面板看触发图标在屏幕左半还是右半 */
 function sideOf(el, iconRect) {
     if (el.classList.contains('fillLeft')) return -1;
     if (el.classList.contains('fillRight')) return 1;
-    if (iconRect) return iconRect.left + iconRect.width / 2 < innerWidth / 2 ? -1 : 1;
+    if (iconRect) return iconRect.left + iconRect.width / 2 < viewW() / 2 ? -1 : 1;
     return -1;
 }
 
@@ -71,9 +72,9 @@ export function resolveForm(el, dir, settings) {
  */
 export function panelTracks(el, dir, o) {
     // 尺寸由调用方传入（打开时在排版干净的时候量，关闭时用缓存），这里不读，避免强制排版
-    const rect = o.rect || { left: 0, top: 0, width: innerWidth, height: innerHeight * 0.7 };
-    const h = rect.height || innerHeight * 0.6;
-    const w = rect.width || innerWidth;
+    const rect = o.rect || { left: 0, top: 0, width: viewW(), height: viewH() * 0.7 };
+    const h = rect.height || viewH() * 0.6;
+    const w = rect.width || viewW();
     const amp = o.amp ?? 1;
     const sc = (x) => String(+Math.min(3, Math.max(0.05, x)).toFixed(3));
     // 位移按面板高度计算，手机上的全屏面板同样可见；幅度 0–3

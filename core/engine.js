@@ -53,10 +53,18 @@ export function speedOf(mod) {
  * 面积不到屏幕 2%（按钮一类）为 1，超过 60%（整屏面板）为 0.45，中间按对数过渡。
  * 设置为「统一」时一律为 1（分模块设置时同样生效，与各模块的幅度叠加）。
  */
+// 窗口大小：读 innerWidth / innerHeight 会强制排版（播放动画时往往刚写过样式），这里缓存起来，尺寸变化时更新
+let vw = innerWidth, vh = innerHeight;
+addEventListener('resize', () => { vw = innerWidth; vh = innerHeight; }, { passive: true });
+/** 窗口宽度（缓存，不触发排版） */
+export const viewW = () => vw;
+/** 窗口高度（缓存，不触发排版） */
+export const viewH = () => vh;
+
 export function areaFactor(w, h) {
     const s = state.settings;
     if (!s || s.panelBounce === 'uniform') return 1;
-    const a = Math.min(1, (w * h) / Math.max(1, innerWidth * innerHeight));
+    const a = Math.min(1, (w * h) / Math.max(1, vw * vh));
     if (a <= 0.02) return 1;
     if (a >= 0.6) return 0.45;
     return +(1 - 0.55 * (Math.log(a / 0.02) / Math.log(30))).toFixed(3);
@@ -111,6 +119,29 @@ export function poseExtras(mod, m = 1) {
 }
 
 const running = new WeakMap();
+
+// ---------- 画完之后统一读、统一写 ----------
+// 打开面板时，几个模块都要等那一帧画完再读尺寸（例如面板本身、里面的列表）。各自在两次 rAF 后读，
+// 前一个读完接着写样式，后一个再读就要重新排版一遍（大面板几十到上百毫秒）。
+// 这里共用一个 rAF 循环：到期的回调先全部读，再全部写，同一帧只排版一次。
+let frameNo = 0;
+let ticking = false;
+const queue = [];
+function tick() {
+    frameNo++;
+    const due = queue.filter(q => q.at <= frameNo);
+    if (due.length) {
+        for (const q of due) queue.splice(queue.indexOf(q), 1);
+        const vals = due.map(q => { try { return q.read(); } catch (e) { console.debug('[MotionEngine] read failed', e); return undefined; } });
+        due.forEach((q, i) => { try { q.write(vals[i]); } catch (e) { console.debug('[MotionEngine] write failed', e); } });
+    }
+    if (queue.length) requestAnimationFrame(tick); else ticking = false;
+}
+/** 等当前这一帧画完（两次 rAF）后执行：read 只读不写，write 拿到 read 的结果再写 */
+export function afterPaint(read, write) {
+    queue.push({ at: frameNo + 2, read, write });
+    if (!ticking) { ticking = true; requestAnimationFrame(tick); }
+}
 
 /**
  * 在元素上播放一组动画，并取消该元素上之前由本插件播放的动画。
@@ -175,14 +206,23 @@ export function play(el, group, tracks, { keep = false, defer = false, own = fal
  * 这时把透明度轨道换成 filter: opacity()，效果相同。
  */
 const lockCache = new WeakMap(); // el → { gen, locked }：每个元素每套主题只检查一次，避免每次播放都强制计算样式
+// 同一种元素（标签、id、class 相同）结果相同：一批列表项只在第一项计算一次样式，后面的直接用
+const lockByKind = new Map(); // key → { gen, locked }
 function fixLockedOpacity(el, tracks, anims) {
     const i = tracks.findIndex(([kf]) => 'opacity' in kf[0] && !tracks.some(([k]) => 'filter' in k[0]));
     if (i < 0 || !anims[i]) return;
     const gen = themeGeneration();
     let hit = lockCache.get(el);
+    const kind = `${el.tagName}#${el.id}.${el.getAttribute('class') || ''}`;
     if (!hit || hit.gen !== gen) {
-        const want = Number(tracks[i][0][0].opacity);
-        hit = { gen, locked: Math.abs(parseFloat(getComputedStyle(el).opacity) - want) > 0.05 };
+        const k = lockByKind.get(kind);
+        if (k && k.gen === gen) hit = k;
+        else {
+            const want = Number(tracks[i][0][0].opacity);
+            hit = { gen, locked: Math.abs(parseFloat(getComputedStyle(el).opacity) - want) > 0.05 };
+            if (lockByKind.size > 500) lockByKind.clear();
+            lockByKind.set(kind, hit);
+        }
         lockCache.set(el, hit);
     }
     if (!hit.locked) return;
@@ -258,6 +298,15 @@ export function stop(el) {
     if (!map) return;
     for (const anims of map.values()) anims.forEach(a => a.cancel());
     map.clear();
+}
+
+/** 结束某个元素上某一组的动画 */
+export function stopGroup(el, group) {
+    const map = running.get(el);
+    const anims = map?.get(group);
+    if (!anims) return;
+    anims.forEach(a => a.cancel());
+    map.delete(group);
 }
 
 export function isRunning(el, group) {

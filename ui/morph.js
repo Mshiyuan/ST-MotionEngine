@@ -131,22 +131,24 @@ export function morph(list, mutate, { root, scope, inDur, outDur, inEase, outEas
         go(m, [{ translate: `0 ${px(dy)}` }, { translate: '0 0' }]);
     }
 
-    // 新出现的：从上往下揭开并淡入（只揭开屏幕里的部分）
+    // 新出现的：从上往下揭开（只揭开屏幕里的部分）。内容跟着裁剪边缘一起出现：
+    // 外框的背景和裁剪同步伸开，内容若从全透明慢慢淡入，前几帧只看见一块空的底色（闪白），所以淡入很短、且不从 0 开始
     for (const el of entering) {
         const a = A.get(el);
         if (!a.height || a.top >= vh) continue;
         const end = Math.max(0, a.height - Math.max(0, vh - a.top));
         go(el, [{ clipPath: `inset(0 0 ${px(a.height)} 0)` }, { clipPath: `inset(0 0 ${px(end)} 0)` }], { fill: 'forwards' });
-        go(el, [{ opacity: 0 }, { opacity: 1 }], { duration: dur * 0.6, easing: fade });
+        go(el, [{ opacity: 0.7 }, { opacity: 1 }], { duration: dur * 0.25, easing: fade });
     }
 
-    // 消失的：原处收起并淡出（只收屏幕里的部分）
+    // 消失的：原处收起（只收屏幕里的部分）。内容保持可见，随裁剪一起卷起，最后一段才淡出；
+    // 提前淡出的话，外框还在收，中间会露出一大块空的底色
     for (const el of leaving) {
         const g = ghostAt.get(el), b = B.get(el);
         if (b.top >= vh) continue;
         const start = Math.max(0, g.h - Math.max(0, vh - b.top));
         go(el, [{ clipPath: `inset(0 0 ${px(start)} 0)` }, { clipPath: `inset(0 0 ${px(g.h)} 0)` }], { fill: 'forwards' });
-        go(el, [{ opacity: 1 }, { opacity: 0 }], { duration: dur * 0.7, easing: fade, fill: 'forwards' });
+        go(el, [{ opacity: 1 }, { opacity: 1, offset: 0.6 }, { opacity: 0 }], { easing: 'linear', fill: 'forwards' });
     }
 
     let done = false;
