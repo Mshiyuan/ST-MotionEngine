@@ -11,7 +11,7 @@ export const SCOPE_GROUPS = [
     { id: 'tap', mods: ['press', 'icons', 'checkbox'] },
     { id: 'panels', mods: ['drawers', 'menus', 'popups', 'toasts', 'inline', 'select', 'zoom'] },
     { id: 'chat', mods: ['messages', 'entry', 'swipes', 'reasoning', 'editing', 'mesmenu'] },
-    { id: 'pages', mods: ['welcome', 'tabs', 'lists'] },
+    { id: 'pages', mods: ['welcome', 'tabs', 'lists', 'bgthumbs'] },
 ];
 /** 0.4.0 的「细节交互」拆成的各项 */
 const FROM_DETAILS = ['entry', 'editing', 'tabs', 'mesmenu', 'zoom', 'lists'];

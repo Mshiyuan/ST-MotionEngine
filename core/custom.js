@@ -263,7 +263,7 @@ export function importStyles(text) {
 // ---------- 分模块配置 ----------
 /** 码里的模块顺序（只能在末尾追加；追加后旧码仍能解开，因为未设置的位为 0） */
 export const CODE_MODULES = ['press', 'icons', 'checkbox', 'drawers', 'menus', 'popups', 'toasts', 'inline', 'select', 'messages',
-    'entry', 'swipes', 'reasoning', 'editing', 'mesmenu', 'welcome', 'tabs', 'lists', 'zoom'];
+    'entry', 'swipes', 'reasoning', 'editing', 'mesmenu', 'welcome', 'tabs', 'lists', 'zoom', 'bgthumbs'];
 const AMP = [0, 5, 1, 0.1];
 const SPEED = [0.5, 2, 1, 0.1];
 const nAmp = Math.round((AMP[1] - AMP[0]) / AMP[3]) + 1;

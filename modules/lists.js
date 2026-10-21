@@ -54,9 +54,12 @@ function reveal(list, dir = 0) {
     animateItems(visibleItems(list), dir);
 }
 
+/** 背景缩略图：正在播放的一批。开始滑动时立即结束（几十个正在动的图层一起滚动，手机上第一次滑动会卡） */
+let bgBatch = null;
+
 /** 只读：可见区域里的项和位置 */
-function visibleItems(list) {
-    if (!active('lists') || !list.isConnected) return [];
+function visibleItems(list, mod = 'lists') {
+    if (!active(mod) || !list.isConnected) return [];
     const kids = [...list.children].slice(0, 240);
     // 一次读取全部位置，不穿插写入，只排版一次
     const rects = kids.map(el => el.getBoundingClientRect());
@@ -68,9 +71,9 @@ function visibleItems(list) {
     return items;
 }
 
-function animateItems(items, dir = 0) {
-    if (!items.length) return;
-    const { dur, v } = scoped('lists');
+function animateItems(items, dir = 0, mod = 'lists') {
+    if (!items.length) return null;
+    const { dur, v } = scoped(mod);
     const step = Math.min(35, Math.max(dur('--me-stagger') * 0.6, 12));
     // 行号：顶边相差不到半个项高的算同一行；同一行里从左到右稍微错开
     let row = -1, col = 0, rowTop = -Infinity;
@@ -79,19 +82,23 @@ function animateItems(items, dir = 0) {
     const gen = {};
     const done = [];
     items.forEach(([el, r]) => {
-        const z = sized('lists', r.width, r.height);
+        const z = sized(mod, r.width, r.height);
         if (r.top - rowTop > r.height / 2) { row++; col = 0; rowTop = r.top; } else col++;
         const delay = row * step + col * step * 0.3;
         const from = dir ? `${dir * 28 * z.af}px 0` : `0 calc(${z.y} + ${8 * z.af}px)`;
         revealGen.set(el, gen);
+        // 透明度不跟着逐排延迟：延迟期间整片是空的，面板已经出来了却看不到内容（先白一下）。
+        // 内容一开始就半透明可见，很快到位；位移和缩放按排错开
         done.push(play(el, 'list', [
-            [[{ opacity: 0 }, { opacity: 1 }], { duration: dur('--me-in-dur') * 0.6, delay, easing: v('--me-fade') }],
+            [[{ opacity: 0.35 }, { opacity: 1 }], { duration: Math.min(dur('--me-in-dur') * 0.5, 240), easing: v('--me-fade') }],
             [[{ translate: from, scale: z.s }, { translate: '0 0', scale: '1' }], { duration: z.D, delay, easing: z.ease }],
         ], { keep: true }));
     });
-    Promise.allSettled(done).then(() => {
+    const finish = () => {
         for (const [el] of items) if (revealGen.get(el) === gen) { revealGen.delete(el); stopGroup(el, 'list'); }
-    });
+    };
+    Promise.allSettled(done).then(finish);
+    return finish;
 }
 
 /** 列表项 → 最近一次播放它的那一批（新的一批开始后，旧批次的清理不再碰它） */
@@ -165,9 +172,12 @@ export function installLists() {
             const now = bg.classList.contains('openDrawer');
             if (now === open) return;
             open = now;
-            if (!now || !active('lists') || state.reduced) return;
+            if (!now) { bgBatch?.(); bgBatch = null; return; }
+            if (!active('bgthumbs') || state.reduced) return;
             // 等面板打开那一帧画完再读位置
-            afterPaint(() => visibleItems(bgList), items => animateItems(items, 0));
+            afterPaint(() => visibleItems(bgList, 'bgthumbs'), items => { bgBatch = animateItems(items, 0, 'bgthumbs'); });
         }).observe(bg, { attributes: true, attributeFilter: ['class'] });
+        // 开始滑动：缩略图立即到位
+        bg.addEventListener('scroll', () => { if (bgBatch) { bgBatch(); bgBatch = null; } }, { capture: true, passive: true });
     }
 }

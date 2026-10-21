@@ -16,7 +16,7 @@ function ensureItem() {
         item.id = ID;
         item.className = 'list-group-item flex-container flexGap5 interactable';
         item.tabIndex = 0;
-        item.innerHTML = `<div class="fa-solid fa-wand-magic-sparkles extensionsMenuExtensionButton"></div><span>${t('title')}</span>`;
+        item.innerHTML = `<div class="fa-solid fa-water extensionsMenuExtensionButton"></div><span>${t('title')}</span>`;
         item.addEventListener('click', openQuick);
         menu.append(item);
     }

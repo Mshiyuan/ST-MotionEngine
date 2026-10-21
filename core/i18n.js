@@ -163,7 +163,9 @@ const DICT = {
     m_tabs: ['右栏切页', 'Right panel tabs'],
     m_tabs_d: ['角色列表、角色编辑、群聊等页面之间切换', 'Switching between character list, editor, groups and so on'],
     m_lists: ['列表刷新', 'List refresh'],
-    m_lists_d: ['翻页、更改每页条数、筛选和搜索后，列表项依次出现；也用于聊天记录和背景图列表', 'Items appear one by one after paging, page size changes, filtering and search; also for chat files and backgrounds'],
+    m_lists_d: ['翻页、更改每页条数、筛选和搜索后，列表项依次出现；也用于聊天记录列表', 'Items appear one by one after paging, page size changes, filtering and search; also for chat files'],
+    m_bgthumbs: ['背景缩略图', 'Background thumbnails'],
+    m_bgthumbs_d: ['打开背景面板时，可见的缩略图按排依次出现；开始滑动时立即到位', 'When the background panel opens, visible thumbnails appear row by row; scrolling finishes them at once'],
 
     secCompat: ['兼容与性能', 'Compatibility & performance'],
     prerender: ['面板预渲染', 'Prerender panels'],
