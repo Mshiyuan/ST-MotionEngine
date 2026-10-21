@@ -243,6 +243,9 @@ export function playTransform(el, group, tracks, opt = {}) {
     const tgt = transformTarget(el);
     if (!tgt) { stop(el); return Promise.resolve(false); }
     if (tgt.pseudo) return playOnGlyph(el, group, tracks, opt, tgt.pseudo);
+    // 上一次只动图形的动画被打断时（例如关闭面板后很快又点开），me-glyph 标记会留下来；
+    // 留着的话下面的监视会以为已经在动图形而不再处理，图标本身被缩放，下划线跑到图标中间。改动元素本身前先清掉
+    el.classList.remove('me-glyph');
     const p = play(el, group, tracks, opt);
     const cs = getComputedStyle(el);
     // 元素本身已是定位参照时，加缩放不会改变装饰的参照，无需监视
