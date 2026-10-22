@@ -16,7 +16,7 @@ import { previewPanel } from '../modules/drawers.js';
 import { iconFx } from '../modules/icons.js';
 import { morph as morphFx } from './morph.js';
 
-const VERSION = '0.5.6';
+const VERSION = '0.5.7';
 const COMPAT = ['prerender', 'pauseLoops', 'lite', 'override', 'followSystemReduced', 'followPointer', 'haptics', 'wandEntry'];
 const TABS = ['panel', 'button', 'switch', 'checkbox', 'icon', 'menu', 'toast', 'list'];
 const BASE_GROUPS = [...GROUPS.map(g => g.id), 'custom'];
@@ -272,11 +272,12 @@ function htmlFull() {
                 <i class="fa-solid fa-chevron-down me-sg-icon"></i>
               </button>
               <span class="me-sg-count"></span>
+              <button type="button" class="me-mini me-sg-unify" data-sgunify="${g.id}" aria-pressed="false" title="${t('sgUnify_d')}">${t('sgUnify')}</button>
               <button type="button" class="me-switch me-switch-sm" role="switch" data-sg-all="${g.id}" aria-label="${t('sg_' + g.id)}"></button>
             </div>
             <div class="me-sg-tune">
-              ${range(g.id, t('amp'), 0, 5, 0.1, 'data-sg-amp')}
-              ${range(g.id, t('speed'), 0.5, 2, 0.1, 'data-sg-speed')}
+              ${range(g.id, t('sgAmp'), 0, 5, 0.1, 'data-sg-amp')}
+              ${range(g.id, t('sgSpeed'), 0.5, 2, 0.1, 'data-sg-speed')}
             </div>
             <div class="me-sg-body">${g.mods.map(modRow).join('')}</div>
           </div>`).join(''))}
@@ -367,8 +368,31 @@ export function createUI({ compact = false } = {}) {
         });
     }
 
-    /** 分类收起时显示整类的幅度、速度（仅分模块设置开启、且这一类有开着的项） */
-    const sgTuned = (g, s = state.settings) => !!s.perModule && s.scopeFold.includes(g.id) && g.mods.some(m => s.modules[m]);
+    /** 分类开了「统一调节」时显示统一的幅度、速度（仅分模块设置开启、且这一类有开着的项），和收起展开无关 */
+    const sgTuned = (g, s = state.settings) => !!s.perModule && s.sgUnify.includes(g.id) && g.mods.some(m => s.modules[m]);
+
+    /** 切换一个分类的「统一调节」：打开时各项先统一成当前的平均值；各项自己的滑块和统一滑块互换 */
+    function toggleUnify(id) {
+        const s = state.settings;
+        const g = SCOPE_GROUPS.find(x => x.id === id);
+        const box = $(`[data-sg="${id}"]`);
+        const on = !s.sgUnify.includes(id);
+        const next = { ...s, sgUnify: on ? [...s.sgUnify, id] : s.sgUnify.filter(x => x !== id) };
+        const list = [[box.querySelector('.me-sg-tune'), sgTuned(g, next)]];
+        if (!s.scopeFold.includes(id)) box.querySelectorAll('.me-mod-tune').forEach(el => list.push([el, !on]));
+        morph(list, () => {
+            s.sgUnify = next.sgUnify;
+            if (on) {
+                for (const k of ['amp', 'speed']) {
+                    const avg = Math.round(g.mods.reduce((a, m) => a + tuneOf(s, m)[k], 0) / g.mods.length * 10) / 10;
+                    for (const m of g.mods) s.tune[m] = { ...tuneOf(s, m), [k]: avg };
+                }
+                const p = s.tuneProfiles.find(x => x.id === s.tuneProfile);
+                if (p) p.tune = structuredClone(s.tune); else s.tuneProfile = '';
+            }
+            apply(); save();
+        });
+    }
 
     /** 收起 / 展开作用范围里的一个分类 */
     function foldGroup(id, open) {
@@ -379,7 +403,7 @@ export function createUI({ compact = false } = {}) {
         if (folded === !open) return;
         const next = { ...s, scopeFold: open ? s.scopeFold.filter(x => x !== id) : [...s.scopeFold, id] };
         spinChevron(box.querySelector('.me-sg-icon'));
-        morph([[box.querySelector('.me-sg-body'), open], [box.querySelector('.me-sg-tune'), sgTuned(g, next)]], () => {
+        morph([[box.querySelector('.me-sg-body'), open]], () => {
             s.scopeFold = next.scopeFold;
             syncGroups();
             save();
@@ -404,6 +428,8 @@ export function createUI({ compact = false } = {}) {
             const folded = s.scopeFold.includes(g.id);
             box.classList.toggle('me-sg-folded', folded);
             box.classList.toggle('me-sg-tuned', sgTuned(g));
+            box.classList.toggle('me-sg-unified', s.sgUnify.includes(g.id));
+            box.querySelector('.me-sg-unify').setAttribute('aria-pressed', String(s.sgUnify.includes(g.id)));
             box.querySelector('.me-sg-fold').setAttribute('aria-expanded', String(!folded));
             box.querySelector('.me-sg-count').textContent = `${on}/${g.mods.length}`;
             $(`[data-sg-all="${g.id}"]`).setAttribute('aria-checked', String(on === g.mods.length));
@@ -1207,7 +1233,7 @@ export function createUI({ compact = false } = {}) {
         for (const g of SCOPE_GROUPS) {
             const box = $(`[data-sg="${g.id}"]`);
             list.push([box.querySelector('.me-sg-tune'), sgTuned(g)]);
-            if (scopeOpen && !s.scopeFold.includes(g.id)) box.querySelectorAll('.me-mod-tune').forEach(el => list.push([el, on]));
+            if (scopeOpen && !s.scopeFold.includes(g.id) && !s.sgUnify.includes(g.id)) box.querySelectorAll('.me-mod-tune').forEach(el => list.push([el, on]));
         }
         morph(list, () => { apply(); save(); });
         if (on && !scopeOpen) toggleFold(scope, true);
@@ -1266,6 +1292,7 @@ export function createUI({ compact = false } = {}) {
             }
             if (el.classList.contains('me-fold-head')) { toggleFold(el.closest('.me-fold')); return; }
             if (el.dataset.sgfold) { foldGroup(el.dataset.sgfold, s.scopeFold.includes(el.dataset.sgfold)); return; }
+            if (el.dataset.sgunify) { toggleUnify(el.dataset.sgunify); return; }
             if (el.dataset.group) {
                 if (el.dataset.group !== shownGroup) { sheetFor = null; renderFeels(el.dataset.group, true); }
                 return;

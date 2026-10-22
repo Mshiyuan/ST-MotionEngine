@@ -87,10 +87,8 @@ function animateItems(items, dir = 0, mod = 'lists') {
         const delay = row * step + col * step * 0.3;
         const from = dir ? `${dir * 28 * z.af}px 0` : `0 calc(${z.y} + ${8 * z.af}px)`;
         revealGen.set(el, gen);
-        // 透明度不跟着逐排延迟：延迟期间整片是空的，面板已经出来了却看不到内容（先白一下）。
-        // 内容一开始就半透明可见，很快到位；位移和缩放按排错开
         done.push(play(el, 'list', [
-            [[{ opacity: 0.35 }, { opacity: 1 }], { duration: Math.min(dur('--me-in-dur') * 0.5, 240), easing: v('--me-fade') }],
+            [[{ opacity: 0 }, { opacity: 1 }], { duration: dur('--me-in-dur') * 0.6, delay, easing: v('--me-fade') }],
             [[{ translate: from, scale: z.s }, { translate: '0 0', scale: '1' }], { duration: z.D, delay, easing: z.ease }],
         ], { keep: true }));
     });
@@ -135,6 +133,38 @@ function revealThumbs(items) {
     };
     Promise.allSettled(done).then(finish);
     return finish;
+}
+
+// ---------- 背景缩略图预取 ----------
+const PREFETCH_MAX = 48;
+const prefetched = new Map(); // 地址 → Image（保留引用，避免被回收）
+const idle = (fn) => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 4000 }) : setTimeout(fn, 300));
+
+/** 缩略图地址，和酒馆 backgrounds.js 的写法一致；动态背景（mp4/webp 关闭动画时）由酒馆另取，不预取 */
+function thumbUrl(item) {
+    const file = item.getAttribute('bgfile');
+    if (!file) return null;
+    if (item.getAttribute('custom') === 'true') return file;
+    if (/\.(mp4|webp)$/i.test(file)) return null;
+    return `/thumbnail?type=bg&file=${encodeURIComponent(file)}`;
+}
+
+function prefetchThumbs(list) {
+    if (!state.on || !list.isConnected) return;
+    const urls = [...list.querySelectorAll('.bg_example')].slice(0, PREFETCH_MAX).map(thumbUrl).filter(u => u && !prefetched.has(u));
+    // 一次几张，分批放在空闲时间里
+    const step = () => {
+        for (const u of urls.splice(0, 6)) {
+            const img = new Image();
+            img.decoding = 'async';
+            img.src = u;
+            prefetched.set(u, img);
+            img.decode().catch(() => { });
+        }
+        if (urls.length) idle(step);
+    };
+    if (urls.length) idle(step);
+    if (prefetched.size > PREFETCH_MAX * 3) for (const k of [...prefetched.keys()].slice(0, PREFETCH_MAX)) prefetched.delete(k);
 }
 
 /** 列表项 → 最近一次播放它的那一批（新的一批开始后，旧批次的清理不再碰它） */
@@ -213,7 +243,15 @@ export function installLists() {
             // 等面板打开那一帧画完再读位置
             afterPaint(() => visibleItems(bgList, 'bgthumbs'), items => { bgBatch = revealThumbs(items); });
         }).observe(bg, { attributes: true, attributeFilter: ['class'] });
-        // 开始滑动：缩略图立即到位
-        bg.addEventListener('scroll', () => { if (bgBatch) { bgBatch(); bgBatch = null; } }, { capture: true, passive: true });
+        // 开始滑动或手指碰到面板：缩略图立即到位
+        const settle = () => { if (bgBatch) { bgBatch(); bgBatch = null; } };
+        bg.addEventListener('scroll', settle, { capture: true, passive: true });
+        bg.addEventListener('pointerdown', settle, { capture: true, passive: true });
+        // 提前加载缩略图：酒馆在缩略图快露出来时才加载图片，第一次滑动时要边滑边下载、解码。
+        // 空闲时先把前面一部分的图片加载并解码好；列表重新生成（换分类、导入新图片）后再补
+        let prefetchTimer = 0;
+        const schedulePrefetch = () => { clearTimeout(prefetchTimer); prefetchTimer = setTimeout(() => idle(() => prefetchThumbs(bgList)), 600); };
+        new MutationObserver(schedulePrefetch).observe(bgList, { childList: true });
+        setTimeout(schedulePrefetch, 5000);
     }
 }

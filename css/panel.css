@@ -33,8 +33,18 @@
 :is(#me-settings, #me-quick) .me-sec { display: flex; flex-direction: column; gap: 8px; }
 /* 展开「动效引擎」时整个设置面板要排版一次（好几屏长）。手感以下的分区在屏幕外时跳过排版和绘制，滚动到时再排；
    auto 记住上次的实际高度，滚动条不会跳 */
-#me-settings .me-dim > .me-sec:not([data-sec="feel"]),
+#me-settings .me-dim > .me-sec:not([data-sec="feel"]):not(.me-fold),
 #me-settings .me-dim > .me-card { content-visibility: auto; contain-intrinsic-size: auto 320px; }
+/* 折叠分区（作用范围、兼容与性能）不跳过：默认收起，跳过也省不了什么；展开后跳过的话，滑进来的那一刻才排几十个滑块，滑动会卡 */
+
+/* 滑块：只有按住圆点才拖动，点在轨道上不跳值；竖着滑交给页面滚动。
+   手指在滑块上往上推时，原来会改掉滑块的值（并触发一次整页重新应用设置），滑动又卡又会误改设置 */
+:is(#me-settings, #me-quick) input[type="range"] { touch-action: pan-y; }
+@media (pointer: coarse) {
+    :is(#me-settings, #me-quick) input[type="range"] { pointer-events: none; }
+    :is(#me-settings, #me-quick) input[type="range"]::-webkit-slider-thumb { pointer-events: auto; }
+    :is(#me-settings, #me-quick) input[type="range"]::-moz-range-thumb { pointer-events: auto; }
+}
 :is(#me-settings, #me-quick) .me-label { font-size: 0.8em; letter-spacing: 0.06em; opacity: 0.6; padding-left: 4px; }
 :is(#me-settings, #me-quick) .me-card { border-radius: 14px; background: var(--me-fill); overflow: hidden; }
 :is(#me-settings, #me-quick) .me-foot { margin: 0; padding: 0 4px; font-size: 0.8em; line-height: 1.55; opacity: 0.6; }
@@ -295,7 +305,12 @@
 :is(#me-settings, #me-quick) .me-sg-icon { font-size: 0.7em; opacity: 0.55; }
 :is(#me-settings, #me-quick) .me-sg-folded .me-sg-icon { rotate: -90deg; }
 :is(#me-settings, #me-quick) .me-sg-folded .me-sg-body { display: none; }
-:is(#me-settings, #me-quick) .me-sg-tune { display: none; padding: 0 0 6px; }
+:is(#me-settings, #me-quick) .me-sg-tune { display: none; padding: 2px 0 8px; }
+/* 「统一调节」：只在分模块设置开启时出现；打开后这一类只显示统一的滑块，各项自己的滑块隐藏 */
+:is(#me-settings, #me-quick) .me-sg-head .me-sg-unify { display: none; padding: 3px 10px; font-size: 0.75em; border-radius: 999px; border: 1.5px solid transparent; }
+:is(#me-settings, #me-quick).me-permod-on .me-sg-head .me-sg-unify { display: inline-flex; }
+:is(#me-settings, #me-quick) .me-sg-head .me-sg-unify[aria-pressed="true"] { border-color: var(--me-accent); background: var(--me-sel); font-weight: 600; }
+:is(#me-settings, #me-quick).me-permod-on .me-sg-unified .me-mod-tune { display: none; }
 :is(#me-settings, #me-quick) .me-sg-tuned .me-sg-tune { display: block; }
 :is(#me-settings, #me-quick) .me-sg-tune .me-range { min-height: 34px; padding-top: 2px; padding-bottom: 2px; font-size: 0.9em; }
 :is(#me-settings, #me-quick) .me-sg-tune .me-range + .me-range { box-shadow: none; }

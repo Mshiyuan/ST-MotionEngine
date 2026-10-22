@@ -303,6 +303,11 @@ export function stop(el) {
     map.clear();
 }
 
+/** 把某个元素上某一组的动画直接播到结尾（用户开始操作时，动画让位给手指） */
+export function finishGroup(el, group) {
+    running.get(el)?.get(group)?.forEach(a => { try { a.finish(); } catch { /* 无限循环的动画不能 finish */ } });
+}
+
 /** 结束某个元素上某一组的动画 */
 export function stopGroup(el, group) {
     const map = running.get(el);

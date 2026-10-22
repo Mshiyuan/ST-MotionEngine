@@ -6,7 +6,7 @@
 // 如果插件此时读取尺寸，浏览器会被迫提前排版；接着插件再改样式，同一帧就得排两遍。所以：
 //   打开：先只写不读（面板设为透明并分好图层），等这一帧画完、排版已经算好，再读尺寸、开始动画；
 //   关闭：用打开时记下的尺寸，全程不读。
-import { active, play, stop, state, isRunning, ampOf, afterPaint } from '../core/engine.js';
+import { active, play, stop, state, isRunning, ampOf, afterPaint, finishGroup } from '../core/engine.js';
 import { resolveForm, panelTracks } from '../core/forms.js';
 import { hasFixedBackground } from '../core/guard.js';
 import { unfixBackground } from '../core/fixedbg.js';
@@ -14,7 +14,9 @@ import { unfixBackground } from '../core/fixedbg.js';
 export const DRAWER_SELECTOR = '#top-settings-holder > .drawer > .drawer-content';
 const wasOpen = new WeakMap();
 /** 打开时记下的几何信息，关闭时直接用 */
-const geom = new WeakMap(); // el → { rect, iconRect, fixedBg }
+let geom = new WeakMap(); // el → { rect, iconRect, fixedBg }
+// 窗口尺寸变化（旋转屏幕等）后面板大小会变，下次打开重新量
+addEventListener('resize', () => { geom = new WeakMap(); }, { passive: true });
 
 function iconOf(el) {
     return el.parentElement?.querySelector(':scope > .drawer-toggle .drawer-icon') || null;
@@ -48,15 +50,22 @@ function start(el, dir, g, t) {
         const { tracks, origin } = panelTracks(el, dir, { form, k, rect: g.rect, iconRect: g.iconRect, fixedBg: g.fixedBg && !unfixed.has(el), amp: ampOf('drawers'), lite: s.lite });
         return begin(el, dir, tracks, origin);
     };
-    // 关闭时酒馆切换 class 的那一帧要重算整块面板的样式（手机上几十到几百毫秒）。动画如果同时开始，
-    // 这段时间会计入动画进度，画面第一次更新时动画已接近结束，面板看上去直接消失。因此先保持原样，等这一帧结束再开始。
-    if (dir === 'out' && t) {
-        return new Promise(resolve => afterPaint(() => null, () => resolve(token.get(el) === t ? go() : false)));
-    }
     return go();
 }
 
+/** 关闭的总时长上限：退出比进入快，关闭不拖沓 */
+const OUT_MAX = 220;
+
+/** 把一组轨道按比例压缩到不超过 max 毫秒（时长和延迟一起缩） */
+function capTracks(tracks, max) {
+    const end = Math.max(...tracks.map(([, o]) => (o.duration || 0) + (o.delay || 0)));
+    if (!(end > max)) return tracks;
+    const k = max / end;
+    return tracks.map(([kf, o]) => [kf, { ...o, duration: (o.duration || 0) * k, ...(o.delay ? { delay: o.delay * k } : {}) }]);
+}
+
 function begin(el, dir, tracks, origin) {
+    if (dir === 'out' && el.matches(DRAWER_SELECTOR)) tracks = capTracks(tracks, OUT_MAX);
     // 只有缩放才需要变换原点。改内联样式会让整块面板重算一次样式，用不到就不写
     const scaled = tracks.some(([kf]) => 'scale' in kf[0] || 'rotate' in kf[0]);
     if (scaled) el.style.transformOrigin = origin;
@@ -98,6 +107,9 @@ function run(el, dir, iconEl = null) {
         el.classList.remove('me-leaving');
         // 只写：透明 + 分好图层。下一帧再量尺寸、开始动画
         el.style.willChange = 'opacity, translate, scale';
+        // 打开过的面板：用上次量好的尺寸立即开始，不再等两帧、不再强制排版（面板大小和图标位置几乎不变）
+        const known = geom.get(el);
+        if (known && !iconEl) return start(el, 'in', known);
         // 关闭动画尚未结束时再次打开：不加占位，下一帧从当前画面继续
         // 占位动画的时长须长于最慢的第一帧：手机上首次打开大面板可能超过 1 秒，占位先结束会使面板短暂完整显示
         if (!isRunning(el, 'drawer')) el.animate([{ opacity: 0 }, { opacity: 0 }], { duration: 10000, id: 'me-hold' });
@@ -155,5 +167,7 @@ export function installDrawers() {
     for (const el of els) {
         wasOpen.set(el, el.classList.contains('openDrawer'));
         mo.observe(el, { attributes: true, attributeFilter: ['class'] });
+        // 可打断：打开动画还在播时手指碰到面板（要滑动、要点选），动画直接到位，让位给手指
+        el.addEventListener('pointerdown', () => { if (el.classList.contains('openDrawer')) finishGroup(el, 'drawer'); }, { capture: true, passive: true });
     }
 }

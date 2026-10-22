@@ -44,6 +44,8 @@ export const DEFAULTS = Object.freeze({
     tagMap: Object.freeze({}),
     /** 作用范围里收起的分类 id */
     scopeFold: Object.freeze([]),
+    /** 作用范围里开了「统一调节」的分类 id：这一类所有项用同一个幅度和速度 */
+    sgUnify: Object.freeze([]),
     /** 在扩展菜单显示快捷设置入口 */
     wandEntry: false,
     /** 面板开合期间暂停面板里美化的循环动画 */
@@ -75,6 +77,7 @@ export function loadSettings() {
         tags: Array.isArray(saved.tags) ? saved.tags.filter(t => t && t.id).map(t => ({ id: String(t.id), name: String(t.name || '').slice(0, 12) })) : [],
         tagMap: saved.tagMap && typeof saved.tagMap === 'object' ? { ...saved.tagMap } : {},
         scopeFold: Array.isArray(saved.scopeFold) ? saved.scopeFold.filter(id => SCOPE_GROUPS.some(g => g.id === id)) : [],
+        sgUnify: Array.isArray(saved.sgUnify) ? saved.sgUnify.filter(id => SCOPE_GROUPS.some(g => g.id === id)) : [],
     };
     s.tune = cleanTune(s.tune);
     // 旧版本设置迁移（幅度范围历次放宽 0–1.5 → 0–2 → 0–3，数值含义不变）
