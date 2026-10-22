@@ -104,7 +104,8 @@ function animateItems(items, dir = 0, mod = 'lists') {
 /**
  * 背景缩略图：和设置预览里的「列表」一样的幅度（风格的位移 × 1.2 + 6px、完整缩放、风格的间隔）。
  * 和面板的打开动画同时播放时看不出来，所以等面板淡入得差不多了再开始；
- * 第一排立即开始，各排在约 0.4 秒内依次开始。返回立即结束这一批的函数
+ * 第一排立即开始，各排在约 0.4 秒内依次开始。返回立即结束这一批的函数。
+ * 图片一开始就在（半透明），动效加在已经出来的图片上，不从空白开始
  */
 function revealThumbs(items) {
     if (!items.length) return null;
@@ -126,7 +127,7 @@ function revealThumbs(items) {
         const delay = start + ri * step + ci * step * 0.25;
         revealGen.set(el, gen);
         done.push(play(el, 'list', [
-            [[{ opacity: 0 }, { opacity: 1 }], { duration: D * 0.6, delay, easing: v('--me-fade') }],
+            [[{ opacity: 0.5 }, { opacity: 1 }], { duration: D * 0.6 + delay, easing: v('--me-fade') }],
             [[{ translate: `0 calc(${v('--me-y')} * 1.2 + 6px)`, scale: v('--me-s'), ...x.a }, { translate: '0 0', scale: '1', ...x.b }], { duration: D, delay, easing: v('--me-in') }],
         ], { keep: true }));
     }));
@@ -151,21 +152,37 @@ function thumbUrl(item) {
     return `/thumbnail?type=bg&file=${encodeURIComponent(file)}`;
 }
 
+/**
+ * 酒馆的缩略图要等面板打开、缩略图进入可视区才开始设置，所以打开时先是一片白底，图片再一张张出来。
+ * 这里在面板关着时就把前面一部分的图片下载、解码好，并按酒馆一样的写法先填到缩略图上；
+ * 酒馆之后再设置的是同一个值，不会有变化。动态背景（mp4/webp）由酒馆另取，不处理
+ */
+function fillThumb(item, u) {
+    const clip = item.querySelector('.thumbnail-clipper');
+    if (clip && clip.style.backgroundImage.includes('data:image/png')) clip.style.backgroundImage = `url("${u}")`;
+}
+
 function prefetchThumbs(list) {
     if (!state.on || !list.isConnected) return;
-    const urls = [...list.querySelectorAll('.bg_example')].slice(0, PREFETCH_MAX).map(thumbUrl).filter(u => u && !prefetched.has(u));
-    // 一次几张，分批放在空闲时间里
+    const todo = [...list.querySelectorAll('.bg_example')].slice(0, PREFETCH_MAX).map(item => [item, thumbUrl(item)]).filter(([, u]) => u);
+    // 一次几张，分批放在空闲时间里；一批解码完一起填，只引起一次样式重算
     const step = () => {
-        for (const u of urls.splice(0, 6)) {
-            const img = new Image();
-            img.decoding = 'async';
-            img.src = u;
-            prefetched.set(u, img);
-            img.decode().catch(() => { });
-        }
-        if (urls.length) idle(step);
+        const batch = todo.splice(0, 6);
+        Promise.all(batch.map(([, u]) => {
+            let img = prefetched.get(u);
+            if (!img) {
+                img = new Image();
+                img.decoding = 'async';
+                img.src = u;
+                prefetched.set(u, img);
+            }
+            return img.decode().then(() => true, () => false);
+        })).then(ok => {
+            batch.forEach(([item, u], i) => { if (ok[i] && item.isConnected) fillThumb(item, u); });
+            if (todo.length) idle(step);
+        });
     };
-    if (urls.length) idle(step);
+    if (todo.length) idle(step);
     if (prefetched.size > PREFETCH_MAX * 3) for (const k of [...prefetched.keys()].slice(0, PREFETCH_MAX)) prefetched.delete(k);
 }
 
