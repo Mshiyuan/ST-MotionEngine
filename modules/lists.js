@@ -87,8 +87,10 @@ function animateItems(items, dir = 0, mod = 'lists') {
         const delay = row * step + col * step * 0.3;
         const from = dir ? `${dir * 28 * z.af}px 0` : `0 calc(${z.y} + ${8 * z.af}px)`;
         revealGen.set(el, gen);
+        // 透明度不跟着逐排延迟：延迟期间整片是空的，面板已经出来了却看不到内容（先白一下）。
+        // 内容一开始就半透明可见，很快到位；位移和缩放按排错开
         done.push(play(el, 'list', [
-            [[{ opacity: 0 }, { opacity: 1 }], { duration: dur('--me-in-dur') * 0.6, delay, easing: v('--me-fade') }],
+            [[{ opacity: 0.35 }, { opacity: 1 }], { duration: Math.min(dur('--me-in-dur') * 0.5, 240), easing: v('--me-fade') }],
             [[{ translate: from, scale: z.s }, { translate: '0 0', scale: '1' }], { duration: z.D, delay, easing: z.ease }],
         ], { keep: true }));
     });
