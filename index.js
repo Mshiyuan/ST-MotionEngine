@@ -26,7 +26,7 @@ const ctx = () => SillyTavern.getContext();
 
 async function init() {
     // 调试和其他插件用：改完 settings 后调用 apply() 生效，save() 保存
-    window.MotionEngine = { state, get settings() { return state.settings; }, apply, save, version: '0.5.13' };
+    window.MotionEngine = { state, get settings() { return state.settings; }, apply, save, version: '0.5.14' };
     setLocale(ctx().getCurrentLocale?.());
     loadSettings();
     onApply(syncDiag);
@@ -39,9 +39,9 @@ async function init() {
         try { step(); } catch (e) { console.error(`[MotionEngine] ${step.name} failed`, e); }
     }
 
-    // 放在「聊天翻译」下面；找不到时放在扩展设置右栏末尾
+    // 放在「正则」下面；找不到时放在扩展设置右栏末尾
     const panel = buildPanel();
-    const after = document.getElementById('translation_container');
+    const after = document.getElementById('regex_container');
     if (after) after.after(panel);
     else (document.getElementById('extensions_settings2') || document.getElementById('extensions_settings'))?.append(panel);
     try { installQuick(); } catch (e) { console.error('[MotionEngine] installQuick failed', e); }
