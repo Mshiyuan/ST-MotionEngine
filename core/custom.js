@@ -261,7 +261,7 @@ export function importStyles(text) {
 }
 
 // ---------- 分模块配置 ----------
-/** 码里的模块顺序（只能在末尾追加；追加后旧码仍能解开，因为未设置的位为 0） */
+/** 码里的模块顺序（只能在末尾追加；追加后旧码仍能解开，因为未设置的位为 0）。bgthumbs 已删除，位置保留，旧码照常能解开 */
 export const CODE_MODULES = ['press', 'icons', 'checkbox', 'drawers', 'menus', 'popups', 'toasts', 'inline', 'select', 'messages',
     'entry', 'swipes', 'reasoning', 'editing', 'mesmenu', 'welcome', 'tabs', 'lists', 'zoom', 'bgthumbs'];
 const AMP = [0, 5, 1, 0.1];

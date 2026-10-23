@@ -5,19 +5,20 @@ import { state } from './engine.js';
 import { shouldReduce } from './guard.js';
 
 export const KEY = 'motionEngine';
-export const MODULES = CODE_MODULES;
+// 码里保留了已删除的 bgthumbs 位置，设置里不再有这一项
+export const MODULES = CODE_MODULES.filter(m => m !== 'bgthumbs');
 /** 设置面板「作用范围」里的分组 */
 export const SCOPE_GROUPS = [
     { id: 'tap', mods: ['press', 'icons', 'checkbox'] },
     { id: 'panels', mods: ['drawers', 'menus', 'popups', 'toasts', 'inline', 'select', 'zoom'] },
     { id: 'chat', mods: ['messages', 'entry', 'swipes', 'reasoning', 'editing', 'mesmenu'] },
-    { id: 'pages', mods: ['welcome', 'tabs', 'lists', 'bgthumbs'] },
+    { id: 'pages', mods: ['welcome', 'tabs', 'lists'] },
 ];
 /** 0.4.0 的「细节交互」拆成的各项 */
 const FROM_DETAILS = ['entry', 'editing', 'tabs', 'mesmenu', 'zoom', 'lists'];
 /** 默认关闭的模块：选择框会把系统列表换成页面内列表，改变了操作方式，由用户决定；
  *  背景缩略图：多数风格在缩略图上不明显，且打开后马上滑动时会卡，由用户决定 */
-const OFF_BY_DEFAULT = ['select', 'bgthumbs'];
+const OFF_BY_DEFAULT = ['select'];
 
 export const DEFAULTS = Object.freeze({
     enabled: true,
@@ -99,8 +100,8 @@ export function loadSettings() {
     if (saved.tune?.details) for (const m of FROM_DETAILS) if (!s.tune[m]) s.tune[m] = sanitizeTune(saved.tune.details);
     // 0.5.0 删除了「故障闪现」
     if (s.feel === 'glitch') s.feel = 'smooth';
-    // 0.5.5：背景缩略图改为默认关闭；0.5.4 里按默认存下的「开」统一关一次
-    if (!saved.bgthumbsOff) { s.modules.bgthumbs = false; s.bgthumbsOff = true; }
+    // 0.5.11 删除了「背景缩略图」
+    delete s.modules.bgthumbs; delete s.tune.bgthumbs; delete s.bgthumbsOff;
     state.settings = s;
     return s;
 }

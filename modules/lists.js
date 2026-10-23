@@ -1,4 +1,4 @@
-// 列表刷新：翻页、更改每页条数、标签筛选、搜索之后，列表项依次出现；聊天记录列表、背景图列表打开时同样处理。
+// 列表刷新：翻页、更改每页条数、标签筛选、搜索之后，列表项依次出现；聊天记录列表打开时同样处理。背景图列表不加动效，只提前填好缩略图。
 //
 // 性能做法：
 //   - 只在用户操作之后才处理（翻页按钮、每页条数、标签、搜索框）；其余时间观察回调直接返回，不读不写；
@@ -6,7 +6,7 @@
 //     按行依次出现（同一行几乎同时），总时长只随行数增加，缩略图再小也不会拖得很长；
 //   - 只动透明度和位移，在合成线程执行；
 //   - 搜索时等输入和列表都停下来 260ms 后才播放，打字过程中不播放。
-import { active, play, state, scoped, sized, afterPaint, stopGroup, poseExtras } from '../core/engine.js';
+import { active, play, state, scoped, sized, stopGroup } from '../core/engine.js';
 
 /** 安全上限：可见区域里最多这么多项做动画 */
 const MAX_ITEMS = 120;
@@ -54,9 +54,6 @@ function reveal(list, dir = 0) {
     animateItems(visibleItems(list), dir);
 }
 
-/** 背景缩略图：正在播放的一批。开始滑动时立即结束（几十个正在动的图层一起滚动，手机上第一次滑动会卡） */
-let bgBatch = null;
-
 /** 只读：可见区域里的项和位置 */
 function visibleItems(list, mod = 'lists') {
     if (!active(mod) || !list.isConnected) return [];
@@ -94,43 +91,6 @@ function animateItems(items, dir = 0, mod = 'lists') {
             [[{ translate: from, scale: z.s }, { translate: '0 0', scale: '1' }], { duration: z.D, delay, easing: z.ease }],
         ], { keep: true }));
     });
-    const finish = () => {
-        for (const [el] of items) if (revealGen.get(el) === gen) { revealGen.delete(el); stopGroup(el, 'list'); }
-    };
-    Promise.allSettled(done).then(finish);
-    return finish;
-}
-
-/**
- * 背景缩略图：和设置预览里的「列表」一样的幅度（风格的位移 × 1.2 + 6px、完整缩放、风格的间隔）。
- * 和面板的打开动画同时播放时看不出来，所以等面板淡入得差不多了再开始；
- * 第一排立即开始，各排在约 0.4 秒内依次开始。返回立即结束这一批的函数。
- * 图片一开始就在（半透明），动效加在已经出来的图片上，不从空白开始
- */
-function revealThumbs(items) {
-    if (!items.length) return null;
-    const { dur, v } = scoped('bgthumbs');
-    const start = Math.round(scoped('drawers').dur('--me-p-in-dur') * 0.45);
-    const D = dur('--me-in-dur') || 1;
-    const x = poseExtras('bgthumbs');
-    // 行号：顶边相差不到半个项高的算同一行
-    const rows = [];
-    let rowTop = -Infinity;
-    for (const [el, r] of items) {
-        if (r.top - rowTop > r.height / 2) { rows.push([]); rowTop = r.top; }
-        rows[rows.length - 1].push(el);
-    }
-    const step = Math.min(Math.max(dur('--me-stagger'), 20), 400 / Math.max(1, rows.length));
-    const gen = {};
-    const done = [];
-    rows.forEach((row, ri) => row.forEach((el, ci) => {
-        const delay = start + ri * step + ci * step * 0.25;
-        revealGen.set(el, gen);
-        done.push(play(el, 'list', [
-            [[{ opacity: 0.5 }, { opacity: 1 }], { duration: D * 0.6 + delay, easing: v('--me-fade') }],
-            [[{ translate: `0 calc(${v('--me-y')} * 1.2 + 6px)`, scale: v('--me-s'), ...x.a }, { translate: '0 0', scale: '1', ...x.b }], { duration: D, delay, easing: v('--me-in') }],
-        ], { keep: true }));
-    }));
     const finish = () => {
         for (const [el] of items) if (revealGen.get(el) === gen) { revealGen.delete(el); stopGroup(el, 'list'); }
     };
@@ -248,24 +208,9 @@ export function installLists() {
         }, true);
     }
 
-    // 背景图列表：背景面板打开时
-    const bg = q('#Backgrounds');
+    // 背景图列表：只提前加载、填好缩略图，不加动效
     const bgList = q('#bg_menu_content');
-    if (bg && bgList) {
-        let open = bg.classList.contains('openDrawer');
-        new MutationObserver(() => {
-            const now = bg.classList.contains('openDrawer');
-            if (now === open) return;
-            open = now;
-            if (!now) { bgBatch?.(); bgBatch = null; return; }
-            if (!active('bgthumbs') || state.reduced) return;
-            // 等面板打开那一帧画完再读位置
-            afterPaint(() => visibleItems(bgList, 'bgthumbs'), items => { bgBatch = revealThumbs(items); });
-        }).observe(bg, { attributes: true, attributeFilter: ['class'] });
-        // 开始滑动或手指碰到面板：缩略图立即到位
-        const settle = () => { if (bgBatch) { bgBatch(); bgBatch = null; } };
-        bg.addEventListener('scroll', settle, { capture: true, passive: true });
-        bg.addEventListener('pointerdown', settle, { capture: true, passive: true });
+    if (bgList) {
         // 提前加载缩略图：酒馆在缩略图快露出来时才加载图片，第一次滑动时要边滑边下载、解码。
         // 空闲时先把前面一部分的图片加载并解码好；列表重新生成（换分类、导入新图片）后再补
         let prefetchTimer = 0;
