@@ -49,6 +49,8 @@ export const DEFAULTS = Object.freeze({
     sgUnify: Object.freeze([]),
     /** 在扩展菜单显示快捷设置入口 */
     wandEntry: false,
+    /** 性能记录（调试用） */
+    diag: false,
     /** 面板开合期间暂停面板里美化的循环动画 */
     pauseLoops: true,
     modules: Object.freeze(Object.fromEntries(MODULES.map(m => [m, !OFF_BY_DEFAULT.includes(m)]))),

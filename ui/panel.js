@@ -10,13 +10,14 @@ import { PANEL_FORMS } from '../core/forms.js';
 import { state, play, scoped, poseExtras } from '../core/engine.js';
 import { t, name, desc } from '../core/i18n.js';
 import { MODULES, SCOPE_GROUPS, apply, save, resetSettings, onApply, currentFeel, tuneOf } from '../core/settings.js';
+import { runAuto, report, clearDiag } from '../core/diag.js';
 import { CURVES, ORIGINS, RANGES, FORMS_IN, FORMS_OUT, MAX_CUSTOM, buildFeel, customFrom, sanitizeCustom, newId, exportStyle, importStyles, exportTune, importTune, curveName } from '../core/custom.js';
 import { systemReduced } from '../core/guard.js';
 import { previewPanel } from '../modules/drawers.js';
 import { iconFx } from '../modules/icons.js';
 import { morph as morphFx } from './morph.js';
 
-const VERSION = '0.5.11';
+const VERSION = '0.5.12';
 const COMPAT = ['prerender', 'pauseLoops', 'lite', 'override', 'followSystemReduced', 'followPointer', 'haptics', 'wandEntry'];
 const TABS = ['panel', 'button', 'switch', 'checkbox', 'icon', 'menu', 'toast', 'list'];
 const BASE_GROUPS = [...GROUPS.map(g => g.id), 'custom'];
@@ -281,7 +282,7 @@ function htmlFull() {
             </div>
             <div class="me-sg-body">${g.mods.map(modRow).join('')}</div>
           </div>`).join(''))}
-        ${fold('compat', t('secCompat'), COMPAT.map(k => sw(k, t(k), t(k + '_d'))).join(''))}
+        ${fold('compat', t('secCompat'), COMPAT.map(k => sw(k, t(k), t(k + '_d'))).join('') + sw('diag', t('diag'), t('diag_d')) + `<div class="me-row me-diag"><button type="button" class="me-mini" data-diag="auto">${t('diagAuto')}</button><button type="button" class="me-mini" data-diag="copy">${t('diagCopy')}</button><button type="button" class="me-mini" data-diag="clear">${t('diagClear')}</button></div>`)}
         <div class="me-card"><div class="me-row me-action"><button type="button" class="me-reset">${t('reset')}</button></div></div>
         <p class="me-ver">Motion Engine v${VERSION} · 时鸢</p>
       </div>
@@ -1068,6 +1069,7 @@ export function createUI({ compact = false } = {}) {
             const count = (sec, on, all) => { $(`[data-sec="${sec}"] .me-fold-count`).textContent = t('countOn', { n: on, m: all }); };
             count('scope', MODULES.filter(m => s.modules[m]).length, MODULES.length);
             count('compat', COMPAT.filter(k => s[k]).length, COMPAT.length);
+            $('.me-diag').hidden = !s.diag;
             syncGroups();
             const selectNote = $('[data-mod="select"]')?.closest('.me-row')?.querySelector('small');
             if (selectNote && !CSS.supports('appearance', 'base-select')) selectNote.textContent = t('m_selectNA');
@@ -1239,6 +1241,27 @@ export function createUI({ compact = false } = {}) {
         if (on && !scopeOpen) toggleFold(scope, true);
     }
 
+    // ---------- 性能记录 ----------
+    async function diagAction(kind) {
+        if (kind === 'clear') { clearDiag(); toast(t('diagClear')); return; }
+        if (kind === 'auto') {
+            toast(t('diagRunning'), 'info');
+            await runAuto();
+            toast(t('diagDone'));
+            return;
+        }
+        const text = await report(VERSION);
+        try { await navigator.clipboard.writeText(text); toast(t('diagCopied')); }
+        catch {
+            // 剪贴板不可用时，放进弹窗里让用户自己全选复制
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.cssText = 'width:100%;height:50vh;font-size:12px';
+            SillyTavern.getContext().callGenericPopup?.(ta, 1);
+            setTimeout(() => { ta.focus(); ta.select(); }, 100);
+        }
+    }
+
     // ---------- 事件 ----------
     function bind() {
         wrap.addEventListener('click', (e) => {
@@ -1291,6 +1314,7 @@ export function createUI({ compact = false } = {}) {
                 return;
             }
             if (el.classList.contains('me-fold-head')) { toggleFold(el.closest('.me-fold')); return; }
+            if (el.dataset.diag) { diagAction(el.dataset.diag); return; }
             if (el.dataset.sgfold) { foldGroup(el.dataset.sgfold, s.scopeFold.includes(el.dataset.sgfold)); return; }
             if (el.dataset.sgunify) { toggleUnify(el.dataset.sgunify); return; }
             if (el.dataset.group) {

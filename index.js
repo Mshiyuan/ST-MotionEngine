@@ -3,7 +3,8 @@ import { state } from './core/engine.js';
 import { installOrigin } from './core/origin.js';
 import { installPredecode, installSurface } from './core/guard.js';
 import { setLocale } from './core/i18n.js';
-import { loadSettings, apply, save } from './core/settings.js';
+import { loadSettings, apply, save, onApply } from './core/settings.js';
+import { syncDiag } from './core/diag.js';
 import { installPress } from './modules/press.js';
 import { installMenus } from './modules/menus.js';
 import { installPopups } from './modules/popups.js';
@@ -25,9 +26,10 @@ const ctx = () => SillyTavern.getContext();
 
 async function init() {
     // 调试和其他插件用：改完 settings 后调用 apply() 生效，save() 保存
-    window.MotionEngine = { state, get settings() { return state.settings; }, apply, save, version: '0.5.11' };
+    window.MotionEngine = { state, get settings() { return state.settings; }, apply, save, version: '0.5.12' };
     setLocale(ctx().getCurrentLocale?.());
     loadSettings();
+    onApply(syncDiag);
     apply();
 
     // 每个模块各自 try：一个模块出错不影响其他模块
@@ -37,8 +39,11 @@ async function init() {
         try { step(); } catch (e) { console.error(`[MotionEngine] ${step.name} failed`, e); }
     }
 
-    const host = document.getElementById('extensions_settings2') || document.getElementById('extensions_settings');
-    host?.append(buildPanel());
+    // 放在「聊天翻译」下面；找不到时放在扩展设置右栏末尾
+    const panel = buildPanel();
+    const after = document.getElementById('translation_container');
+    if (after) after.after(panel);
+    else (document.getElementById('extensions_settings2') || document.getElementById('extensions_settings'))?.append(panel);
     try { installQuick(); } catch (e) { console.error('[MotionEngine] installQuick failed', e); }
 
     // 酒馆的「减少动态效果」、系统的减少动画设置变化后重新计算

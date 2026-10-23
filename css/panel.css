@@ -345,6 +345,8 @@
 
 /* 恢复默认 */
 :is(#me-settings, #me-quick) .me-action { padding: 0; }
+:is(#me-settings) .me-diag { justify-content: flex-start; gap: 8px; flex-wrap: wrap; }
+:is(#me-settings) .me-diag[hidden] { display: none; }
 :is(#me-settings, #me-quick) .me-reset { width: 100%; min-height: 46px; margin: 0; border: 0; background: none; text-align: left; padding: 0 14px; color: var(--me-accent); }
 :is(#me-settings, #me-quick) .me-reset:active { background: var(--me-fill-2); }
 
