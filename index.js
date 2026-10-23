@@ -9,7 +9,6 @@ import { installPress } from './modules/press.js';
 import { installMenus } from './modules/menus.js';
 import { installPopups } from './modules/popups.js';
 import { installDrawers } from './modules/drawers.js';
-import { installPrerender } from './modules/prerender.js';
 import { installTransit } from './modules/transit.js';
 import { installToasts } from './modules/toasts.js';
 import { installInline } from './modules/inline.js';
@@ -26,7 +25,7 @@ const ctx = () => SillyTavern.getContext();
 
 async function init() {
     // 调试和其他插件用：改完 settings 后调用 apply() 生效，save() 保存
-    window.MotionEngine = { state, get settings() { return state.settings; }, apply, save, version: '0.5.14' };
+    window.MotionEngine = { state, get settings() { return state.settings; }, apply, save, version: '0.5.15' };
     setLocale(ctx().getCurrentLocale?.());
     loadSettings();
     onApply(syncDiag);
@@ -34,7 +33,7 @@ async function init() {
 
     // 每个模块各自 try：一个模块出错不影响其他模块
     const steps = [installOrigin, installPredecode, installPress, installMenus, installTransit, installPopups,
-        installDrawers, installPrerender, installToasts, installInline, installMessages, installDetails, installIcons, installWelcome, installCheckbox, installLists, installSurface];
+        installDrawers, installToasts, installInline, installMessages, installDetails, installIcons, installWelcome, installCheckbox, installLists, installSurface];
     for (const step of steps) {
         try { step(); } catch (e) { console.error(`[MotionEngine] ${step.name} failed`, e); }
     }

@@ -175,8 +175,6 @@ const DICT = {
     m_lists_d: ['翻页、更改每页条数、筛选和搜索后，列表项依次出现；也用于聊天记录列表', 'Items appear one by one after paging, page size changes, filtering and search; also for chat files'],
 
     secCompat: ['兼容与性能', 'Compatibility & performance'],
-    prerender: ['面板预渲染', 'Prerender panels'],
-    prerender_d: ['关闭的面板保留排版结果，再次打开更快', 'Closed panels keep their layout and reopen faster'],
     lite: ['低配模式', 'Lite mode'],
     lite_d: ['只用淡入淡出，不做模糊和裁剪', 'Fades only; no blur or clipping'],
     override: ['覆盖美化动效', 'Override theme motion'],

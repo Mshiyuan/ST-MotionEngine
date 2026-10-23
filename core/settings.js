@@ -55,7 +55,6 @@ export const DEFAULTS = Object.freeze({
     /** 面板开合期间暂停面板里美化的循环动画 */
     pauseLoops: true,
     modules: Object.freeze(Object.fromEntries(MODULES.map(m => [m, !OFF_BY_DEFAULT.includes(m)]))),
-    prerender: true,
     lite: false,
     override: false,
     followSystemReduced: false,
@@ -91,6 +90,8 @@ export function loadSettings() {
     if (s.panelOut === 'fade') s.panelOut = 'feel';
     if (s.panelBounce === 'soft') s.panelBounce = 'area';
     if (s.panelBounce === 'full') s.panelBounce = 'uniform';
+    // 0.5.15：去掉面板预渲染（关闭的面板留在页面上时，其他代码读取其中元素的尺寸会触发整块面板排版）
+    delete s.prerender;
     if ('customSelect' in s) {
         if (saved.modules?.select === undefined) s.modules.select = !!s.customSelect;
         delete s.customSelect;
@@ -166,7 +167,6 @@ export function apply() {
 
     root.classList.toggle('me-on', state.on);
     for (const m of MODULES) root.classList.toggle(`me-m-${m}`, state.modules.has(m));
-    root.classList.toggle('me-prerender', state.on && !!s.prerender);
     root.classList.toggle('me-lite', state.on && !!s.lite);
     root.classList.toggle('me-override', state.on && !!s.override);
     root.classList.toggle('me-reduced', state.on && state.reduced);
