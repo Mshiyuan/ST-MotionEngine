@@ -26,7 +26,7 @@ const ctx = () => SillyTavern.getContext();
 
 async function init() {
     // 调试和其他插件用：改完 settings 后调用 apply() 生效，save() 保存
-    window.MotionEngine = { state, get settings() { return state.settings; }, apply, save, version: '0.5.12' };
+    window.MotionEngine = { state, get settings() { return state.settings; }, apply, save, version: '0.5.13' };
     setLocale(ctx().getCurrentLocale?.());
     loadSettings();
     onApply(syncDiag);

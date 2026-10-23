@@ -3,6 +3,7 @@
 // 这里注册两个方法替换默认的 fadeIn / fadeOut：从屏幕边缘滑入，退场更快；
 // 一条提示消失后，其余提示从原位置滑到新位置，不再跳动。
 import { active, play, scoped, poseExtras } from '../core/engine.js';
+import { bakeTrack } from '../core/apple.js';
 
 // 动效参数按模块读取（开了「分模块设置」时各模块用自己的幅度和速度）
 const { dur, v } = scoped('toasts');
@@ -65,7 +66,7 @@ export function installToasts() {
                 for (const [n, top] of before) {
                     if (!n.isConnected) continue;
                     const d = top - n.getBoundingClientRect().top;
-                    if (Math.abs(d) > 0.5) n.animate([{ translate: `0 ${d}px` }, { translate: '0 0' }], { duration: dur('--me-in-dur'), easing: v('--me-in') });
+                    if (Math.abs(d) > 0.5) n.animate(...bakeTrack([{ translate: `0 ${d}px` }, { translate: '0 0' }], { duration: dur('--me-in-dur'), easing: v('--me-in') }));
                 }
             });
         });

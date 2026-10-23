@@ -17,7 +17,7 @@ import { previewPanel } from '../modules/drawers.js';
 import { iconFx } from '../modules/icons.js';
 import { morph as morphFx } from './morph.js';
 
-const VERSION = '0.5.12';
+const VERSION = '0.5.13';
 const COMPAT = ['prerender', 'pauseLoops', 'lite', 'override', 'followSystemReduced', 'followPointer', 'haptics', 'wandEntry'];
 const TABS = ['panel', 'button', 'switch', 'checkbox', 'icon', 'menu', 'toast', 'list'];
 const BASE_GROUPS = [...GROUPS.map(g => g.id), 'custom'];

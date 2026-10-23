@@ -13,7 +13,7 @@ const DICT = {
     diagAuto: ['自动测一遍', 'Run test'],
     diagCopy: ['复制记录', 'Copy log'],
     diagClear: ['清空', 'Clear'],
-    diagRunning: ['正在测试，请不要操作（约 80 秒）', 'Testing, please do not touch (about 80 s)'],
+    diagRunning: ['正在测试，请不要操作（约 100 秒）', 'Testing, please do not touch (about 100 s)'],
     diagDone: ['测完了，点「复制记录」', 'Done. Tap "Copy log"'],
     diagCopied: ['已复制', 'Copied'],
     wandEntry_d: ['在扩展菜单中添加入口，打开精简设置（总开关、风格、速度、幅度）', 'Adds an entry to the Extensions menu that opens compact settings (switch, style, speed, amplitude)'],

@@ -1,6 +1,7 @@
 // 统一的 WAAPI 播放器。只动 opacity / translate / scale / rotate / filter，全部在合成线程执行。
 import { themeGeneration, transformTarget } from './guard.js';
 import { spring } from './tokens.js';
+import { bakeTrack } from './apple.js';
 
 export const state = {
     on: false,
@@ -175,6 +176,8 @@ export function play(el, group, tracks, { keep = false, defer = false, own = fal
         anims.forEach(a => a.cancel());
         map.delete(g);
     }
+    // 苹果设备上把弹簧曲线换成能交给显卡的写法（见 core/apple.js）
+    tracks = tracks.map(([kf, opt]) => bakeTrack(kf, opt));
     const anims = [];
     for (const [kf, opt] of tracks) {
         try {
@@ -227,7 +230,7 @@ function fixLockedOpacity(el, tracks, anims) {
     }
     if (!hit.locked) return;
     anims[i].cancel();
-    const kf = tracks[i][0].map(f => ({ ...(f.offset !== undefined && { offset: f.offset }), filter: `opacity(${f.opacity})` }));
+    const kf = tracks[i][0].map(f => ({ ...(f.offset !== undefined && { offset: f.offset }), ...(f.easing && { easing: f.easing }), filter: `opacity(${f.opacity})` }));
     try { anims[i] = el.animate(kf, { fill: 'both', ...tracks[i][1] }); } catch { anims.splice(i, 1); }
 }
 

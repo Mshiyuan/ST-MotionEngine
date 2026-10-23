@@ -3,6 +3,7 @@ import { getFeel, feelVars } from './tokens.js';
 import { buildFeel, sanitizeCustom, sanitizeTune, CODE_MODULES } from './custom.js';
 import { state } from './engine.js';
 import { shouldReduce } from './guard.js';
+import { bakeVars } from './apple.js';
 
 export const KEY = 'motionEngine';
 // 码里保留了已删除的 bgthumbs 位置，设置里不再有这一项
@@ -178,7 +179,8 @@ export function apply() {
         style.id = 'me-vars';
         document.head.append(style);
     }
-    const decl = (vars) => Object.entries(vars).map(([k, val]) => `${k}:${val}`).join(';');
+    // CSS 过渡用的变量：苹果设备上 linear() 换成 cubic-bezier（见 core/apple.js）；state.vars 保留原样，播放时再换
+    const decl = (vars) => Object.entries(bakeVars(vars)).map(([k, val]) => `${k}:${val}`).join(';');
     let css = `:root.me-on{${decl(state.vars)}}`;
     // 用 CSS 变量驱动的部分（弹窗关闭、选择框列表）也要用各自模块的值
     if (s.perModule) css += `:root.me-on dialog.popup{${decl(state.varsBy.popups)}}:root.me-on select{${decl(state.varsBy.select)}}`;

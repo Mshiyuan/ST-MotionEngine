@@ -1,11 +1,13 @@
 // 性能记录（调试用，默认关闭）：在用户自己的设备上找出卡在哪里。
 //   - 设备信息：浏览器、屏幕、酒馆和插件版本、美化、已加载的第三方扩展、本插件用到的写法是否支持；
 //   - 自动测一遍：在几种条件下各开关一次角色、用户（人设）面板，记录打开和关闭期间的帧；
-//     条件：插件关 / 插件开 / 插件开但不暂停美化循环 / 插件开且去掉毛玻璃，用来分出卡在插件、美化循环还是毛玻璃；
+//     条件：插件关 / 插件开 / 插件开但不暂停美化循环 / 插件开且去掉毛玻璃 / 插件开但不换苹果写法（非苹果设备上反过来，换成苹果写法），
+//     用来分出卡在插件、美化循环、毛玻璃还是弹簧曲线；
 //   - 手动操作：开着记录时，每次点按后 1.5 秒内的帧。
 // 只在开关打开时工作；关着时不挂任何监听。
 import { state } from './engine.js';
 import { apply } from './settings.js';
+import { bake, isApple } from './apple.js';
 
 const PANELS = [['角色', '#rightNavHolder'], ['用户', '#persona-management-button'], ['背景', '#backgrounds-button']];
 const log = [];       // 手动操作
@@ -63,6 +65,7 @@ const wait = (ms) => new Promise(r => setTimeout(r, ms));
 export async function runAuto(onStep) {
     const s = state.settings;
     const keep = { enabled: s.enabled, pauseLoops: s.pauseLoops };
+    const keepBake = bake.on;
     const noBlur = document.createElement('style');
     noBlur.textContent = '*, *::before, *::after { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }';
     const CONDS = [
@@ -71,6 +74,7 @@ export async function runAuto(onStep) {
         ['插件开·不暂停循环', () => { s.enabled = true; s.pauseLoops = false; }],
         ['插件开·去掉毛玻璃', () => { s.enabled = true; s.pauseLoops = keep.pauseLoops; document.head.append(noBlur); }],
         ['插件关·去掉毛玻璃', () => { s.enabled = false; }],
+        [isApple ? '插件开·不换苹果写法' : '插件开·换成苹果写法', () => { noBlur.remove(); s.enabled = true; bake.on = !isApple; }],
     ];
     auto = [];
     // 先关掉当前打开的顶栏面板（扩展面板）
@@ -101,6 +105,7 @@ export async function runAuto(onStep) {
         }
     } finally {
         noBlur.remove();
+        bake.on = keepBake;
         Object.assign(s, keep);
         apply();
         // 回到扩展面板
@@ -138,6 +143,7 @@ export async function report(version) {
         `屏幕: ${innerWidth}×${innerHeight} DPR ${devicePixelRatio} 触点 ${navigator.maxTouchPoints}`,
         `美化: ${ctx.powerUserSettings?.theme || '?'} · 风格 ${s.feel} · 速度 ${s.speed} 幅度 ${s.amp} · 低配 ${s.lite ? '开' : '关'} · 暂停循环 ${s.pauseLoops ? '开' : '关'} · 预渲染 ${s.prerender ? '开' : '关'}`,
         `页面: 元素 ${document.getElementsByTagName('*').length} · 用了毛玻璃的元素 ${blurCount} · 角色 ${document.querySelectorAll('#rm_print_characters_block > *').length} · 人设 ${document.querySelectorAll('#user_avatar_block > *').length}`,
+        `苹果写法: ${isApple ? '苹果设备' : '非苹果设备'} · ${bake.on ? '已换' : '未换'}`,
         `第三方扩展: ${ext.join(', ') || '无'}`,
         `支持: ${SUPPORTS.map(([n, f]) => { let ok = false; try { ok = f(); } catch { /* 不支持 */ } return `${n}${ok ? '✓' : '✗'}`; }).join(' ')}`,
         '',
