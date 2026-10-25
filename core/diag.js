@@ -122,7 +122,7 @@ export async function report(version) {
         `【动效引擎 性能记录】v${version} · 酒馆 ${st}`,
         `设备: ${navigator.userAgent}`,
         `屏幕: ${innerWidth}×${innerHeight} DPR ${devicePixelRatio} 触点 ${navigator.maxTouchPoints}`,
-        `美化: ${ctx.powerUserSettings?.theme || '?'} · 风格 ${s.feel} · 速度 ${s.speed} 幅度 ${s.amp} · 低配 ${s.lite ? '开' : '关'} · 暂停循环 ${s.pauseLoops ? '开' : '关'}`,
+        `美化: ${ctx.powerUserSettings?.theme || '?'} · 风格 ${s.feel} · 速度 ${s.speed} 幅度 ${s.amp} · 低配 ${s.lite ? '开' : '关'} · 暂停循环 ${s.pauseLoops ? '开' : '关'} · 暂停被挡住的循环 ${s.pauseCovered ? '开' : '关'}`,
         `页面: 元素 ${document.getElementsByTagName('*').length} · 用了毛玻璃的元素 ${blurCount} · 角色 ${document.querySelectorAll('#rm_print_characters_block > *').length} · 人设 ${document.querySelectorAll('#user_avatar_block > *').length}`,
         `苹果写法: ${isApple ? '苹果设备' : '非苹果设备'} · ${bake.on ? '已换' : '未换'}`,
         `第三方扩展: ${ext.join(', ') || '无'}`,

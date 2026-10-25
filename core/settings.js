@@ -54,6 +54,8 @@ export const DEFAULTS = Object.freeze({
     diag: false,
     /** 面板开合期间暂停面板里美化的循环动画 */
     pauseLoops: true,
+    /** 顶栏面板打开期间，暂停被它挡住或在屏幕外的美化循环动画 */
+    pauseCovered: true,
     modules: Object.freeze(Object.fromEntries(MODULES.map(m => [m, !OFF_BY_DEFAULT.includes(m)]))),
     lite: false,
     override: false,

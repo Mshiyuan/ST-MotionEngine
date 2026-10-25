@@ -18,6 +18,7 @@ import { installIcons } from './modules/icons.js';
 import { installWelcome } from './modules/welcome.js';
 import { installCheckbox } from './modules/checkbox.js';
 import { installLists } from './modules/lists.js';
+import { installCovered, syncCovered } from './modules/covered.js';
 import { buildPanel } from './ui/panel.js';
 import { installQuick } from './ui/quick.js';
 
@@ -25,15 +26,16 @@ const ctx = () => SillyTavern.getContext();
 
 async function init() {
     // 调试和其他插件用：改完 settings 后调用 apply() 生效，save() 保存
-    window.MotionEngine = { state, get settings() { return state.settings; }, apply, save, version: '0.5.15' };
+    window.MotionEngine = { state, get settings() { return state.settings; }, apply, save, version: '0.5.16' };
     setLocale(ctx().getCurrentLocale?.());
     loadSettings();
     onApply(syncDiag);
+    onApply(syncCovered);
     apply();
 
     // 每个模块各自 try：一个模块出错不影响其他模块
     const steps = [installOrigin, installPredecode, installPress, installMenus, installTransit, installPopups,
-        installDrawers, installToasts, installInline, installMessages, installDetails, installIcons, installWelcome, installCheckbox, installLists, installSurface];
+        installDrawers, installToasts, installInline, installMessages, installDetails, installIcons, installWelcome, installCheckbox, installLists, installCovered, installSurface];
     for (const step of steps) {
         try { step(); } catch (e) { console.error(`[MotionEngine] ${step.name} failed`, e); }
     }

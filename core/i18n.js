@@ -187,6 +187,8 @@ const DICT = {
     haptics_d: ['按下时轻微震动，仅安卓', 'Light vibration on press, Android only'],
     pauseLoops: ['开合时暂停循环装饰', 'Pause looping decorations during transitions'],
     pauseLoops_d: ['面板打开、关闭、切换期间，暂停面板内美化的循环动画（如流光），结束后继续', 'While a panel opens, closes or switches, theme animations that loop inside it pause, then resume'],
+    pauseCovered: ['暂停被面板挡住的循环装饰', 'Pause looping decorations hidden behind panels'],
+    pauseCovered_d: ['顶栏面板打开期间，被面板完全挡住或在屏幕外的美化循环动画（如头像发光）暂停，面板关闭后继续。美化的发光、流光会让整页每帧重画，暂停后面板里更流畅', 'While a top panel is open, theme animations that loop on elements fully covered by it or off screen (such as avatar glows) pause, and resume when it closes. Glow and shimmer loops make the whole page repaint every frame'],
     reset: ['恢复默认设置', 'Reset to defaults'],
     resetAsk: ['恢复默认设置？自定义风格、标签和分模块配置会保留。', 'Reset to defaults? Custom styles, tags and configs are kept.'],
 };
