@@ -57,4 +57,4 @@ https://github.com/Mshiyuan/ST-MotionEngine
 
 ## 许可
 
-源码公开、非商用。修改版再分发须使用同一许可、公开完整源码。详见 [LICENSE](LICENSE)。
+源码公开，禁止商用。修改后再发布的，须公开源码，并同样禁止商用。详见 [LICENSE](LICENSE)。

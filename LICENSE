@@ -17,7 +17,9 @@ The English text below is authoritative. A Chinese translation follows for refer
 
 3. Modified versions
    Anyone who distributes a modified version of the Software must:
-   a) license the modified version under this same license;
+   a) not use the modified version for commercial purposes, as set out in
+      section 2 (it may be released under another license only if that license
+      keeps this restriction);
    b) make the complete source code of the modified version publicly available,
       without obfuscation or minification that hinders reading;
    c) keep this license, the original copyright notice, the original author's
@@ -54,7 +56,8 @@ https://github.com/Mshiyuan/ST-MotionEngine
 
 3. 修改版本
    分发本软件的修改版本时，必须：
-   a) 使用本许可协议；
+   a) 不得将修改版本用于商业目的（同第 2 条）；可以改用其他许可协议，但该协议
+      须保留这一限制；
    b) 公开修改版本的完整源码，不得混淆或以妨碍阅读的方式压缩；
    c) 保留本许可协议、原版权声明、原作者署名及原仓库链接；
    d) 明确标注该版本经过修改，并说明修改内容。
